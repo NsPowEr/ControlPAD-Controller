@@ -13,10 +13,18 @@ identifies which behaviour it carries.
 """
 
 import sys
+import pathlib
 import time
 
-from controlpad import ControlPad, led_index, EFFECTS, GRID_COLS, GRID_ROWS
-from macro import events_for, events_for_combo, LCTRL
+# La libreria vive nel motore, che e anche cio che l'app impacchetta: una copia
+# qui accanto significherebbe correggere ogni cosa due volte, ed e gia costato
+# un controlpad.py rimasto indietro col vecchio ACK letto una volta sola.
+_MOTORE = str(pathlib.Path(__file__).resolve().parent.parent / "ControlPadEngine")
+if _MOTORE not in sys.path:
+    sys.path.append(_MOTORE)
+
+from controlpad import ControlPad, led_index, EFFECTS, GRID_COLS, GRID_ROWS  # noqa: E402
+from macro import events_for, events_for_combo, LCTRL                        # noqa: E402
 
 ROSSO, VERDE, BLU = (255, 0, 0), (0, 255, 0), (0, 0, 255)
 GIALLO, MAGENTA = (255, 200, 0), (255, 0, 255)

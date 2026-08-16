@@ -71,7 +71,10 @@ limite di lunghezza (vedi sotto).
 **Profili** — preset salvati lato host in
 `~/Library/Application Support/ControlPad/`, non banchi separati sul
 dispositivo: nessuna cattura ha mai mostrato un comando per scriverne uno
-specifico.
+specifico. Da non confondere con i **banchi del device**, che esistono e che
+un tasto può selezionare: quella scelta sta in Mappatura tasti, accanto alla
+funzione "Seleziona profilo", perché è una cosa che il pad fa da solo anche
+con l'app chiusa.
 
 ## Limiti noti
 
@@ -89,3 +92,16 @@ specifico.
   valori sensati per ciascun effetto non sono stati esplorati a fondo.
 - **Macro e rimappatura sullo stesso tasto**: permesse ma segnalate, il
   comportamento del dispositivo in quel caso non compare in nessuna cattura.
+- **Riassegnazione delle rotelle**: la scheda la permette e lo dice, ma
+  nessuna cattura mostra una rotella riprogrammata — di fabbrica lo sono già,
+  e questo si vede. Va verificata dopo la scrittura.
+
+## Cosa gira senza il pad collegato
+
+Il motore ha un banco di prova che non tocca l'hardware — sessione, keymap,
+slot di illuminazione, codifica delle macro, comandi delle modalità e regola
+degli ACK:
+
+```bash
+cd ../ControlPadEngine && python3 -m unittest discover -s tests
+```

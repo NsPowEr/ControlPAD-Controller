@@ -421,35 +421,54 @@ La scrittura completa osservata dall'app:
 
 ## Stato del lavoro
 
-> Questa sezione era rimasta indietro rispetto a `stato.html` e `README.md`,
-> che documentano entrambi come **risolte e verificate sul dispositivo** le due
-> voci elencate qui sotto come aperte. Leggerla come attuale è costato un
-> limite artificiale di 15 eventi nell'app macOS, tolto dopo il confronto.
+Aggiornata al 16 agosto 2026. Prima era rimasta indietro rispetto a
+`stato.html` e `README.md`, che documentavano già come risolte due voci qui
+elencate come aperte: leggerla come attuale è costato un limite artificiale di
+15 eventi nell'app macOS, tolto dopo il confronto. La regola che ne è uscita è
+che di un fatto ci sia **un posto solo** dove è scritto.
 
 Implementato e verificato sul dispositivo: colore statico, colore per singolo
-tasto su tutta la griglia, tutte e quattordici le modalità di illuminazione, e
+tasto su tutta la griglia, tutte e quattordici le modalità di illuminazione, i
+quattro LED indicatori (animazioni comprese), la rimappatura semplice, e
 **macro di lunghezza arbitraria** — 49 eventi su 4 report, spezzati da
 `macro_packets()` col byte di continuazione.
 
-Due vincoli scoperti sperimentalmente sulla scrittura delle macro:
+Tre vincoli scoperti sperimentalmente, nessuno deducibile dai byte:
 
 * Dopo ogni corpo macro (`53 00`) serve una pausa di circa **72 ms**, che è il
   tempo di scrittura in flash. Senza, il comando viene accettato con ACK
   regolare ma non ha alcun effetto — un fallimento silenzioso.
 * Costruire la sessione da zero non funziona anche a byte corretti: serve
   l'inquadramento completo dell'app, blob di profilo finale incluso. Il
-  metodo che funziona è partire da una cattura e sostituire solo i pacchetti
-  della macro (`write_macro.py`).
+  metodo che funziona è partire da una cattura e sostituire solo le parti che
+  interessano — è quello che fa `ControlPadEngine/session.py`.
+* Ogni report va letto **finché non torna il suo opcode**. Il device intercala
+  report non richiesti fra un comando e la sua conferma, e chi ne legge uno
+  solo slitta di uno, poi di due, finché il pad continua ad ACKare e smette di
+  eseguire. Vale per i comandi dal vivo e per la scrittura di sessione: sono
+  centocinquanta report, ed è lì che la deriva pesa di più.
 
-Risolti dopo che questa sezione era stata scritta, vedi `stato.html`:
+### La sessione registrata non è una configurazione da tenere
 
-* ~~Macro oltre 15 eventi~~. Quindici è la capienza di *un* report; le macro
-  più lunghe si spezzano su più report col secondo byte a `01`. Verificato
-  fino a 49 eventi. Oltre non ha ancora provato nessuno.
-* ~~Modificatori~~. Lo Shift resta premuto per tutto un gruppo di maiuscole
-  invece di essere ribattuto a ogni lettera.
+`skeleton.py` è la traccia di una sessione vera, quindi porta con sé le scelte
+di chi l'ha registrata: **dieci** delle ventotto voci `51 20` hanno un'azione
+diversa da `00ff`, fra cui quattro tasti a `0000` perché ci stavano sopra le
+macro di quella cattura. Riprodurla senza toccarle significa scrivere sul pad
+rimappature che nessuno ha chiesto — `2` che batte `3`, `f` che manda Invio,
+e `x` `c` `v` `Alt` muti.
+
+Chi genera una sessione deve quindi decidere **ogni** voce: `00ff` per i tasti
+che l'utente non ha toccato, e le assegnazioni di fabbrica per le quattro voci
+di rotella, che `00ff` non sono. Lo fa `session._con_rimappatura`.
 
 Rileggere le catture **non richiede più Windows**: `analisi/pcapng.py` legge i
 `.pcapng` di USBPcap in Python puro, senza tshark. Registrarne di *nuove* sì,
 perché macOS non ha uno sniffer USB equivalente — ma le catture esistenti
 contengono ancora dati non sfruttati.
+
+### Cosa non è ancora stato eseguito
+
+Riassegnazione delle rotelle · cambio profilo da software (`51 00 00 00 <N>`)
+· codici di profilo avanti/indietro · valori di velocità sensati per i sei
+effetti reattivi · nome di macro più lungo di un byte (`51 19`) · macro oltre
+49 eventi · un tasto che porti insieme macro e rimappatura.

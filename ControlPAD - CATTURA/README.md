@@ -1,4 +1,4 @@
-# ControlPad — libreria Python e note per l'app macOS
+# ControlPad — il reverse engineering, e come si usa quello che ne è uscito
 
 Controllo completo del **Cooler Master ControlPad** (`VID 0x2516` / `PID 0x007B`,
 variante Cherry) senza il software ufficiale, che esiste solo per Windows.
@@ -6,6 +6,14 @@ variante Cherry) senza il software ufficiale, che esiste solo per Windows.
 Tutto quello che c'è qui è stato **ricavato per reverse engineering dalle
 catture USB** in `captures/` e **verificato inviandolo al dispositivo vero**.
 Dove qualcosa non è stato provato sull'hardware, è scritto esplicitamente.
+
+> **Dove sta il codice.** La libreria vive in **`../ControlPadEngine/`**, che è
+> anche quello che l'app macOS impacchetta dentro di sé. Questa cartella tiene
+> le catture, il protocollo e gli strumenti che l'hanno decodificato: fino ad
+> agosto 2026 ne teneva anche una copia dei moduli, e quella copia è rimasta
+> indietro proprio sulla correzione che più contava — il `_send` che legge un
+> ACK solo, cioè il difetto che per un giorno ha fatto credere non
+> indirizzabili i quattro LED indicatori. Una sorgente sola, quindi.
 
 ---
 
@@ -29,7 +37,8 @@ brew install hidapi
 pip3 install hidapi
 ```
 
-Poi copia questa cartella sul Mac e collega il ControlPad.
+Poi collega il ControlPad. I comandi qui sotto si danno **da
+`../ControlPadEngine/`**, dove stanno i moduli.
 
 **Permessi**: il pad viene comandato attraverso la sua interfaccia
 *vendor-specific*, non attraverso quella di tastiera, e su macOS quella non
@@ -42,6 +51,8 @@ sicurezza*.
 Tre comandi, in ordine. Se arrivi in fondo, tutto il resto funzionerà.
 
 ```bash
+cd ../ControlPadEngine
+
 # 1. il Mac vede il pad?
 python3 -c "import hid; print([d['path'] for d in hid.enumerate(0x2516, 0x007B)])"
 
@@ -50,7 +61,10 @@ python3 -c "from controlpad import ControlPad
 with ControlPad() as p: p.set_static(255, 0, 0)"
 
 # 3. anima i quattro LED in alto
-python3 anim.py
+python3 ../Come_usare_manipolare_i_4_led/anim.py
+
+# 4. quello che si verifica senza avere il pad collegato
+python3 -m unittest discover -s tests
 ```
 
 Se il primo comando stampa una lista vuota, il pad non è collegato o il Mac
@@ -240,8 +254,10 @@ servono ventiquattro, funzionano.
 copre media, retroilluminazione e profili; `NESSUNA_RIMAPPATURA` (`0x00FF`)
 riporta un tasto al comportamento di fabbrica.
 
-**Gestore colori ed effetti dei tasti** — pronta per statico, per singolo
-tasto e per sei dei quattordici effetti. Vedi sotto per i limiti.
+**Gestore colori ed effetti dei tasti** — pronta. Statico, colore per singolo
+tasto e **tutte e quattordici** le modalità, comprese le sei reattive al tocco
+col loro secondo colore: `set_mode()` rigioca il report registrato dall'app e
+ne sostituisce i soli campi che l'utente controlla.
 
 **Gestore dei 4 LED, gruppo separato** — pronta, animazioni comprese. È già un
 gruppo indipendente a livello di protocollo: due comandi diversi, nessuna
@@ -249,32 +265,51 @@ interferenza.
 
 ## 8. Cosa manca ancora
 
-Nessuna di queste blocca lo sviluppo, e nessuna richiede di tornare su
-Windows: le catture in `captures/` contengono già i dati.
+Nessuna di queste blocca lo sviluppo. Le prime due si chiudono soltanto col
+pad in mano; le altre hanno i dati già dentro `captures/`, senza tornare su
+Windows.
 
-- **Nomi degli effetti**: tre identificati su quattordici (`0x01` Statico,
-  `0x30` Lampeggio, `0x31` Ciclo colore). Gli altri funzionano, manca
-  l'etichetta da mostrare nell'interfaccia.
-- **Effetti reattivi al tocco** (Mirino, Stelle, Neve, Pugno, Ondulazione):
-  usano una seconda forma del comando che trasporta tutte le configurazioni
-  insieme, non ancora decodificata.
-- **Profilo avanti/indietro**: i codici non compaiono nelle catture. La
-  selezione diretta dei profili funziona e copre lo stesso bisogno.
+- **Riassegnazione delle rotelle**: che siano pseudo-tasti della keymap è
+  osservato, non dedotto — sono già assegnate di fabbrica in ogni cattura, con
+  lo stesso comando `51 20` dei tasti. Scriverci sopra qualcosa di diverso non
+  l'ha ancora provato nessuno.
 - **Cambio profilo da software** (`51 00 00 00 <N>`): dedotto da due catture
   concordi, mai eseguito.
+- **Profilo avanti/indietro**: i codici non compaiono in nessuna cattura. La
+  selezione diretta di un profilo funziona e copre lo stesso bisogno.
+- **Velocità degli effetti reattivi**: il byte è identificato (offset 36), ma
+  quali valori abbiano senso per ciascun effetto non è stato esplorato.
+- **Nome di una macro** (`51 19`): nelle catture è un byte solo, l'ASCII della
+  lettera digitata. Che il campo ne accetti di più è plausibile e mai provato.
+
+Risolte da quando questa sezione è stata scritta: i **nomi di tutte e
+quattordici le modalità** e la **seconda forma del comando** usata dalle sei
+reattive al tocco — entrambe in `../ControlPadEngine/effects.py`, con il
+ragionamento che regge l'attribuzione.
 
 ## 9. I file
+
+Il codice sta nel motore, `../ControlPadEngine/`:
 
 | File | Cosa contiene |
 |---|---|
 | `controlpad.py` | comandi dal vivo: colori, effetti, LED indicatori |
 | `session.py` | configurazione permanente: macro, rimappature, funzioni, profili |
+| `effects.py` | le quattordici modalità di illuminazione, come le manda l'app |
 | `macro.py` | codifica delle macro in eventi |
 | `layout.py` | disposizione fisica e conversione fra le tre numerazioni |
 | `skeleton.py` | la sessione registrata dall'app, usata come base |
-| `anim.py` | animazioni dei LED indicatori e misura della velocità |
-| `test.py` | banco di prova a fasi, utile per verificare l'hardware |
+| `effetti.py` · `indicatori.py` | primitive e effetti finiti dei 4 LED |
+| `bridge.py` | busta JSON attorno a tutto il resto, per l'app macOS |
+| `tests/` | quello che si verifica senza pad: `python3 -m unittest discover -s tests` |
+
+Qui restano le fonti e gli strumenti:
+
+| File | Cosa contiene |
+|---|---|
 | `PROTOCOL.md` | il protocollo byte per byte |
+| `stato.html` | il punto della situazione, verificato contro dedotto |
+| `test.py` | banco di prova a fasi, utile per verificare l'hardware |
 | `captures/` | le catture USB grezze — **conservale**, sono la fonte di tutto |
 | `analisi/` | strumenti usati per decodificare, richiedono tshark e Windows |
 

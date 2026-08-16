@@ -7,13 +7,19 @@ profile blob before the commit — stays byte-identical to a sequence that is
 known to work, and the original inter-packet pacing is preserved.
 """
 
+import pathlib
 import subprocess
 import sys
 import time
 
 import hid
 
-from macro import (events_for, events_for_combo, macro_packets,
+# La codifica delle macro sta nel motore, non in una copia qui accanto.
+_MOTORE = str(pathlib.Path(__file__).resolve().parent.parent.parent / "ControlPadEngine")
+if _MOTORE not in sys.path:
+    sys.path.append(_MOTORE)
+
+from macro import (events_for, events_for_combo, macro_packets,     # noqa: E402
                    PRESS, LCTRL, LALT, DEL)
 
 VID, PID, REPORT = 0x2516, 0x007B, 64
