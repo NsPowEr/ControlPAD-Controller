@@ -1,0 +1,171 @@
+"app.name" = "ControlPad";
+
+"tab.lighting" = "Lighting";
+"tab.mapping" = "Key Mapping";
+"tab.macros" = "Macros";
+"tab.profiles" = "Profiles";
+
+"connection.notFound" = "ControlPad not connected";
+
+"language.system" = "Follow system";
+"language.italian" = "Italiano";
+"language.english" = "English";
+
+"lighting.color" = "Color";
+"lighting.mode" = "Mode";
+"lighting.tuning" = "Tuning";
+"lighting.speed" = "Speed";
+"lighting.brightness" = "Brightness";
+"lighting.apply" = "Apply";
+
+"effect.static" = "Static";
+"effect.rainbowWave" = "Rainbow Wave";
+"effect.crosshair" = "Crosshair";
+"effect.reactiveFade" = "Reactive Fade";
+"effect.custom" = "Customize";
+"effect.stars" = "Stars";
+"effect.snow" = "Snow";
+"effect.colorCycle" = "Color Cycle";
+"effect.blink" = "Blink";
+"effect.reactivePunch" = "Reactive Punch";
+"effect.circularSpectrum" = "Circular Spectrum";
+"effect.reactiveTornado" = "Reactive Tornado";
+"effect.waterRipple" = "Water Ripple";
+"effect.off" = "Off";
+
+"mapping.reset" = "Reset to default";
+
+"hid.group.letters" = "Letters";
+"hid.group.digits" = "Digits";
+"hid.group.function" = "Function";
+"hid.group.whitespace" = "Special";
+"hid.group.navigation" = "Navigation";
+"hid.group.punctuation" = "Punctuation";
+"hid.group.modifiers" = "Modifiers";
+
+"function.playPause" = "Play / Pause";
+"function.stop" = "Stop";
+"function.previousTrack" = "Previous Track";
+"function.nextTrack" = "Next Track";
+"function.mute" = "Mute";
+"function.volumeDown" = "Volume −";
+"function.volumeUp" = "Volume +";
+"function.effectCycleForward" = "Next Effect";
+"function.effectCycleBackward" = "Previous Effect";
+"function.speedDown" = "Speed −";
+"function.speedUp" = "Speed +";
+"function.brightnessUp" = "Brightness +";
+"function.brightnessDown" = "Brightness −";
+"function.selectProfile" = "Select Profile";
+
+"session.write" = "Write to Device";
+"session.written" = "Written to device";
+
+"macro.list" = "Macros";
+"macro.new" = "New Macro";
+"macro.unnamed" = "Unnamed";
+"macro.events" = "events";
+"macro.edit" = "Edit";
+"macro.selectHint" = "Select or create a macro";
+"macro.assign" = "Assign to Key";
+"macro.name" = "Name";
+"macro.unmappableChars" = "Character not encodable: %@";
+"macro.nameTooLong" = "Name too long (%d of %d bytes)";
+"macro.emptyContent" = "Empty macro: add text, a combo, or some events";
+"macro.noneYet" = "No macros yet. Create one with \"New Macro\".";
+"macro.noFreeSlot" = "All 24 macro slots are in use";
+"macro.noFreeKey" = "All 24 keys already have a macro assigned";
+"macro.confirmSwap.title" = "Key Already Assigned";
+"macro.confirmSwap.confirm" = "Swap";
+"macro.confirmSwap.message" = "This key is already assigned to \"%@\". Swap keys between the two macros?";
+"common.cancel" = "Cancel";
+"session.blockedByMacro" = "\"%@\" isn't valid — fix it before writing";
+"session.macroRemapConflict" = "%d keys have both a macro and a remap: behavior not guaranteed";
+
+"profiles.list" = "Profiles";
+"profiles.empty" = "No saved profiles yet. Set up Lighting/Key Mapping/Macros, then save the current state as a profile.";
+"profiles.saveCurrent" = "Save current state as new profile";
+"profiles.name" = "Name";
+"profiles.macroCount" = "macros";
+"profiles.remapCount" = "remaps";
+"profiles.defaultName" = "Profile %d";
+
+"settings.title" = "Settings";
+"settings.language" = "Language";
+"settings.device" = "Device";
+"settings.deviceConnected" = "ControlPad connected";
+"settings.about" = "About";
+"settings.aboutText" = "USB protocol reverse-engineered independently of Cooler Master's official software. See PROTOCOL.md in the project for the byte-by-byte details.";
+
+"lighting.color1" = "Base color";
+"lighting.color2" = "Reaction color";
+"lighting.colorIgnored" = "This mode cycles the whole color wheel on its own.";
+"lighting.noColor" = "This mode doesn't use a color.";
+"lighting.customHint" = "Tap a key to give it the selected color.";
+"mapping.source.keyboard" = "Keyboard key";
+"mapping.source.function" = "Pad function";
+"mapping.selected" = "Selected key";
+"mapping.keyNumber" = "number on the pad";
+"mapping.defaultIs" = "factory: %@";
+"mapping.currentAction" = "Currently assigned";
+"mapping.noneAssigned" = "Factory behavior";
+"mapping.hasMacro" = "This key also carries a macro";
+"function.group.media" = "Media";
+"function.group.lighting" = "Lighting";
+"function.group.profile" = "Profiles";
+"macro.record" = "Record";
+"macro.stopRecording" = "Stop recording";
+"macro.recordingNow" = "RECORDING — type the keys";
+"macro.recordHint" = "Press Record and type the sequence on your Mac keyboard. It's captured as-is, with real timing, and you can fine-tune it afterwards.";
+"macro.subtitle" = "key %@ · %d events";
+"macro.duration" = "%.1f s";
+"macro.beyondVerified" = "Beyond the %d events tested on the device: it should work, but it hasn't been verified.";
+"macro.confirmReplace.title" = "Replace the recording?";
+"macro.confirmReplace.confirm" = "Record again";
+"macro.confirmReplace.message" = "The current sequence will be discarded.";
+
+"macro.assignHint" = "Tap the pad key that should run this macro.";
+"macro.recordingLock" = "Recording: the rest of the app stays locked until you press Stop.";
+
+"mapping.pad" = "Pad and wheels";
+"mapping.padHint" = "Pick a key or a wheel direction, then assign something to it below.";
+"mapping.assignTo" = "What to assign";
+"mapping.wheel.left" = "Left wheel";
+"mapping.wheel.right" = "Right wheel";
+"mapping.wheel.ccw" = "counter-clockwise";
+"mapping.wheel.cw" = "clockwise";
+"mapping.wheelDirection" = "wheel direction";
+"mapping.wheelUnverified" = "The captures show the wheels already assigned from the factory through the same command as the keys (LED +/− on the left, Volume −/+ on the right). Reassigning them from here hasn't been tried yet: verify after writing.";
+
+"lighting.preview" = "Preview";
+"lighting.indicators" = "Indicator LEDs";
+"lighting.indicatorsHint" = "The four LEDs above the pad. The fixed color is only stored in the pad by Write to Device; the effect only runs while ControlPad is open.";
+"lighting.persistenceHint" = "Apply changes the lights now and the pad forgets them when unplugged: without Write to Device the configuration left in its memory comes back, on any computer.";
+"lighting.indicatorEffect" = "Effect";
+"lighting.indicatorEffect.none" = "None (fixed color only)";
+"lighting.indicatorEffect.hostOnly" = "The effect only runs while ControlPad is open. Close it and the LEDs fall back to the fixed color.";
+"lighting.indicatorEffect.ownColors" = "This effect brings its own colors: the four pickers apply with the effect off.";
+
+"indicator.effect.rincorsa" = "Chase";
+"indicator.effect.cometa" = "Comet";
+"indicator.effect.arrivo" = "Arrival";
+"indicator.effect.pendolo" = "Pendulum";
+"indicator.effect.riempimento" = "Fill";
+"indicator.effect.onda" = "Wave";
+"indicator.effect.arcobaleno" = "Rainbow";
+"indicator.effect.respiro" = "Breathe";
+"indicator.effect.battito" = "Heartbeat";
+"indicator.effect.brace" = "Embers";
+"indicator.effect.scintille" = "Sparks";
+"indicator.effect.allarme" = "Alarm";
+"indicator.effect.polizia" = "Police";
+"indicator.effect.notifica" = "Notification";
+"indicator.effect.vuMeter" = "VU meter";
+"indicator.effect.profilo" = "Profile";
+"indicator.effect.countdown" = "Countdown";
+
+"profiles.hint" = "A profile keeps lighting, indicator LEDs, remaps and macros. Applying it writes the whole thing to the device.";
+"mapping.factoryAction" = "Factory: %@";
+"mapping.disable" = "Disable key";
+"mapping.disabled" = "Disabled — types nothing";
+"mapping.disabled.short" = "off";

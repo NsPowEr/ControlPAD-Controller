@@ -1,0 +1,454 @@
+<title>ControlPad — punto della situazione</title>
+
+<style>
+  :root {
+    --paper:   #f3f2f7;
+    --card:    #ffffff;
+    --line:    #e0dee8;
+    --ink:     #191627;
+    --muted:   #6b6880;
+    --accent:  #6d3fd4;
+    --ok:      #17835a;
+    --warn:    #c4671a;
+    --off:     #8a8798;
+    --code-bg: #efedf5;
+
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:   #131019;
+      --card:    #1c1926;
+      --line:    #2e2a3c;
+      --ink:     #e9e7f1;
+      --muted:   #9c98ad;
+      --accent:  #a684f7;
+      --ok:      #38b98a;
+      --warn:    #e2913f;
+      --off:     #7d7a8c;
+      --code-bg: #241f31;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:   #131019;
+    --card:    #1c1926;
+    --line:    #2e2a3c;
+    --ink:     #e9e7f1;
+    --muted:   #9c98ad;
+    --accent:  #a684f7;
+    --ok:      #38b98a;
+    --warn:    #e2913f;
+    --off:     #7d7a8c;
+    --code-bg: #241f31;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 3rem 1.25rem 5rem;
+  }
+
+  .wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  /* ---- intestazione ---- */
+
+  header { display: flex; flex-direction: column; gap: .75rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .75rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(1.6rem, 4.5vw, 2.4rem);
+    font-weight: 600;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .lede { color: var(--muted); max-width: 62ch; margin: 0; }
+
+  .ids {
+    font-family: var(--mono);
+    font-size: .8rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    padding-top: .5rem;
+    border-top: 1px solid var(--line);
+  }
+
+  /* ---- riquadri di sintesi ---- */
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: .75rem;
+  }
+
+  .tile {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    border-top: 3px solid var(--stripe, var(--off));
+  }
+
+  .tile .n {
+    font-family: var(--mono);
+    font-size: 2rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: var(--stripe, var(--ink));
+  }
+
+  .tile .lbl {
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ---- sezioni ---- */
+
+  section { display: flex; flex-direction: column; gap: 1.1rem; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: .01em;
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: .7rem;
+  }
+
+  h2 .dot {
+    width: .6rem; height: .6rem;
+    border-radius: 50%;
+    background: var(--stripe, var(--off));
+    flex: none;
+    transform: translateY(-1px);
+  }
+
+  h2 + p { color: var(--muted); margin: -.4rem 0 0; max-width: 68ch; }
+
+  /* ---- voci di stato ---- */
+
+  .items { display: flex; flex-direction: column; gap: .5rem; }
+
+  .item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--stripe, var(--off));
+    border-radius: 3px;
+    padding: .85rem 1.1rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: .3rem 1.5rem;
+    align-items: baseline;
+  }
+
+  .item .what { font-weight: 600; }
+
+  .item .how {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-size: .9rem;
+  }
+
+  .item .how code {
+    font-family: var(--mono);
+    font-size: .85em;
+    background: var(--code-bg);
+    padding: .1em .4em;
+    border-radius: 2px;
+  }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--stripe, var(--muted));
+    white-space: nowrap;
+  }
+
+  /* ---- riferimento protocollo ---- */
+
+  .scroll { overflow-x: auto; }
+
+  pre {
+    font-family: var(--mono);
+    font-size: .82rem;
+    line-height: 1.65;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1.1rem 1.2rem;
+    margin: 0;
+    min-width: min-content;
+  }
+
+  pre .c { color: var(--muted); }
+  pre .h { color: var(--accent); }
+
+  /* ---- nota finale ---- */
+
+  .note {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+  }
+
+  .note h3 {
+    font-family: var(--mono);
+    font-size: .95rem;
+    margin: 0;
+  }
+
+  .note p { margin: 0; color: var(--muted); }
+
+  strong { color: var(--ink); font-weight: 600; }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Reverse engineering &middot; punto della situazione</div>
+    <h1>Cooler Master ControlPad</h1>
+    <p class="lede">
+      Stato del protocollo ricostruito dalle catture USB. La distinzione che conta è fra
+      ciò che è stato <strong>eseguito sul dispositivo e confermato a occhio</strong> e ciò
+      che è soltanto stato letto nei byte: sul colore e sulle macro, più volte, il formato
+      sembrava corretto e non funzionava.
+    </p>
+    <div class="ids">
+      <span>VID 0x2516 &middot; PID 0x007B</span>
+      <span>interfaccia MI_01 &middot; usage page 0xFF00</span>
+      <span>14 catture analizzate</span>
+    </div>
+  </header>
+
+  <div class="tiles">
+    <div class="tile" style="--stripe: var(--ok)">
+      <div class="n">10</div>
+      <div class="lbl">Verificato</div>
+    </div>
+    <div class="tile" style="--stripe: var(--accent)">
+      <div class="n">3</div>
+      <div class="lbl">Decodificato</div>
+    </div>
+    <div class="tile" style="--stripe: var(--warn)">
+      <div class="n">3</div>
+      <div class="lbl">Parziale</div>
+    </div>
+    <div class="tile" style="--stripe: var(--off)">
+      <div class="n">1</div>
+      <div class="lbl">Ignoto</div>
+    </div>
+  </div>
+
+  <section style="--stripe: var(--ok)">
+    <h2><span class="dot"></span>Gestito al 100%</h2>
+    <p>Scritto da codice, inviato al pad, risultato confermato fisicamente.</p>
+    <div class="items">
+
+      <div class="item">
+        <span class="what">Colore statico su tutto il pad</span>
+        <span class="badge">verificato</span>
+        <span class="how">Qualunque valore RGB. Provato anche con un verde che non compare in nessuna cattura, quindi è il protocollo a essere capito, non un pacchetto ripetuto a memoria.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Colore per singolo tasto</span>
+        <span class="badge">verificato</span>
+        <span class="how">Tutti i 25 LED della griglia, indirizzati come <code>4 + colonna×5 + riga</code>. Confermato con cinque colonne di colore diverso, tutte corrette.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Macro testuali</span>
+        <span class="badge">verificato</span>
+        <span class="how">Maiuscole, minuscole, spazi e caratteri speciali. <code>CIAo FighEtta|1|1|</code> riprodotto per intero, barre verticali comprese, sul layout italiano.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Shift tenuto premuto sui gruppi</span>
+        <span class="badge">verificato</span>
+        <span class="how">In <code>CIA</code> lo Shift resta giù per tutte e tre le lettere e si rilascia solo davanti alla minuscola, invece di essere ribattuto per ogni carattere.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Combinazioni di modificatori</span>
+        <span class="badge">verificato</span>
+        <span class="how">Pressioni scaglionate e rilascio simultaneo, come farebbe una persona. <code>Ctrl+Alt+Esc</code> confermato attivo sul pad.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Macro di lunghezza arbitraria</span>
+        <span class="badge">verificato</span>
+        <span class="how">49 eventi su 4 report. Il byte di continuazione è stato l'ultimo ostacolo: con due soli report, indice e flag sono indistinguibili, e solo una macro lunga ha potuto dirimerlo.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Assegnazione a uno qualsiasi dei 24 tasti</span>
+        <span class="badge">verificato</span>
+        <span class="how">Il tasto è identificato dal suo codice HID di default: il pad emula la porzione sinistra di una tastiera QWERTY.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Effetti luminosi animati</span>
+        <span class="badge">verificato</span>
+        <span class="how">Sei effetti eseguiti in ciclo, tutti corretti. Le animazioni girano nel firmware: un comando e basta, nessun flusso continuo, quindi su Mac non servirà alcun processo residente.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Rimappatura semplice di un tasto</span>
+        <span class="badge">verificato</span>
+        <span class="how">Il tasto in alto a sinistra riprogrammato per scrivere <code>x</code>. È la prima volta che la tabella keymap viene generata invece che ricopiata invariata dalla cattura.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">I quattro LED indicatori</span>
+        <span class="badge">verificato</span>
+        <span class="how">Colore pieno, 8 bit per canale, all'indirizzo <code>0x00fc</code>: <code>55 50 fc 00 0c</code> scrive le quattro terzine, <code>55 40 fc 00 0c</code> le rilegge identiche. <strong>Il 12 agosto 2026 si è chiusa la storia dei "LED bianchi non indirizzabili": non era l'hardware, era la coda degli ACK.</strong> Il device intercala report non richiesti (<code>ff aa</code>, un <code>42 20</code> occasionale) fra un comando e la sua conferma; leggendo una volta sola per report le letture slittano di uno, poi di due, e da lì il pad <em>continua ad ACKare e smette di eseguire</em>. Sintomo sleale: comando isolato funziona, la stessa sequenza ripetuta no, e ogni indicatore software dice che è andato tutto bene. La regola è leggere finché non torna l'opcode inviato — ora è in <code>ControlPad._send</code>. Misurato con la coda allineata (<code>Come_usare_manipolare_i_4_led/ANIMAZIONI.md</code>): 167 fotogrammi al secondo con <code>41 80</code>, 250 senza — il commit è facoltativo, <code>41 04</code> no. Due avvertenze restano: i 45 al secondo di prima erano velocità d'invio, non una conferma visiva; e <strong>l'ultimo valore scritto sopravvive alla corrente</strong> — il 13 agosto 2026 il pad si è riaccesso sull'ultimo fotogramma di un'animazione dopo essere stato staccato, quindi a fine effetto i colori fissi vanno riscritti espliciti (<code>bridge._ripristina_fissi()</code>, su stdin chiuso e su SIGTERM).</span>
+      </div>
+
+    </div>
+  </section>
+
+  <section style="--stripe: var(--accent)">
+    <h2><span class="dot"></span>Decodificato, mai eseguito</h2>
+    <p>Il formato è noto e coerente su più catture, ma non l'ho ancora scritto io né visto reagire il pad. Sulla base dell'esperienza fatta, è qui che si nascondono i vincoli non deducibili dai byte.</p>
+    <div class="items">
+
+      <div class="item">
+        <span class="what">Cambio di profilo</span>
+        <span class="badge">da provare</span>
+        <span class="how"><code>51 00 00 00 &lt;N&gt;</code> con N a partire da zero. Dedotto da due catture indipendenti che concordano.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Funzioni speciali e rotelle</span>
+        <span class="badge">da provare</span>
+        <span class="how">Tabella completa: controlli media, effect cycle, luminosità, velocità. Passano dallo stesso comando <code>51 20</code> già verificato con la rimappatura, quindi manca solo l'esecuzione.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Tasti che selezionano un profilo</span>
+        <span class="badge">da provare</span>
+        <span class="how">Il codice <code>0x0110</code> marca il tasto come selettore, mentre il numero di profilo sta in una tabella a parte (<code>51 90</code>) indicizzata per colonne.</span>
+      </div>
+
+    </div>
+  </section>
+
+  <section style="--stripe: var(--warn)">
+    <h2><span class="dot"></span>Parziale</h2>
+    <div class="items">
+
+      <div class="item">
+        <span class="what">Effetti &mdash; 6 su 12, senza nomi</span>
+        <span class="badge">parziale</span>
+        <span class="how">I sei identificati funzionano tutti, ma non sappiamo ancora quale codice corrisponda a quale nome nell'app. Gli altri sei passano da una seconda forma del comando che ne trasporta 11&ndash;13 voci insieme: i dati sono già nelle catture, manca la decodifica.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Rotelle</span>
+        <span class="badge">parziale</span>
+        <span class="how">Compaiono nella keymap come quattro pseudo-tasti, due per rotella. Usano lo stesso comando <code>51 20</code> già implementato: manca solo la tabella dei codici funzione.</span>
+      </div>
+
+      <div class="item">
+        <span class="what">Funzioni speciali &mdash; 3 codici</span>
+        <span class="badge">parziale</span>
+        <span class="how"><code>0x0181</code> è EFFECT CYCLE, confermato perché è la funzione che tu hai realmente sul tasto (5,2). Restano da mappare luminosità, velocità e navigazione fra profili.</span>
+      </div>
+
+    </div>
+  </section>
+
+  <section style="--stripe: var(--off)">
+    <h2><span class="dot"></span>Ignoto</h2>
+    <div class="items">
+
+      <div class="item">
+        <span class="what">Funzionamento su macOS</span>
+        <span class="badge">mai provato</span>
+        <span class="how">L'unica cosa rimasta che possa ancora far fallire il progetto, e anche la più economica da verificare. Tutto il resto è mappato.</span>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Quello che serve davvero per scrivere una macro</h2>
+    <p>Due vincoli che non si leggono nei byte e sono costati la maggior parte dei tentativi falliti.</p>
+    <div class="scroll">
+<pre><span class="c">/* 1. la pausa di scrittura in flash */</span>
+53 00 0f 00 <span class="c">…eventi…</span>
+                     <span class="h">← ~72 ms di attesa qui, obbligatori</span>
+41 80
+<span class="c">   senza la pausa il device risponde ACK regolarmente
+   e non salva nulla: fallimento del tutto silenzioso</span>
+
+<span class="c">/* 2. il byte di continuazione */</span>
+53 <span class="h">00</span> 0f 00   <span class="c">primo report — azzera il buffer</span>
+53 <span class="h">01</span> 0f 00   <span class="c">continuazione</span>
+53 <span class="h">01</span> 0f 00   <span class="c">continuazione</span>
+53 <span class="h">01</span> 04 00   <span class="c">continuazione — chiude il terminatore, non l'header</span>
+</pre>
+    </div>
+  </section>
+
+  <div class="note">
+    <h3>Cosa sopravvive allo scollegamento, e cosa no</h3>
+    <p>
+      <strong>Macro e rimappature restano</strong>: sono scritte in flash e funzionano su
+      qualunque computer, senza software. <strong>L'illuminazione no</strong> — e non per un
+      nostro limite: non la memorizza nemmeno l'app ufficiale, che infatti tiene un servizio
+      residente per riapplicarla a ogni collegamento. Una GUI su macOS che faccia lo stesso
+      non sta aggirando un problema, sta ripetendo la scelta del produttore.
+    </p>
+    <p>
+      Resta una dipendenza da sciogliere: la scrittura delle macro parte da una cattura reale
+      e ne sostituisce i soli pacchetti, perché costruire la sessione da zero non ha effetto
+      anche con tutti i byte giusti. Oggi serve quindi <strong>tshark e i file .pcapng</strong>.
+      Esportare una volta lo scheletro in un file di dati rende il programma autonomo: lavoro
+      breve, nessuna cattura aggiuntiva.
+    </p>
+  </div>
+
+</div>

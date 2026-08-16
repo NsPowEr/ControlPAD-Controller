@@ -1,0 +1,171 @@
+"app.name" = "ControlPad";
+
+"tab.lighting" = "Illuminazione";
+"tab.mapping" = "Mappatura tasti";
+"tab.macros" = "Macro";
+"tab.profiles" = "Profili";
+
+"connection.notFound" = "ControlPad non collegato";
+
+"language.system" = "Segui il sistema";
+"language.italian" = "Italiano";
+"language.english" = "English";
+
+"lighting.color" = "Colore";
+"lighting.mode" = "Modalità";
+"lighting.tuning" = "Regolazione";
+"lighting.speed" = "Velocità";
+"lighting.brightness" = "Luminosità";
+"lighting.apply" = "Applica";
+
+"effect.static" = "Statico";
+"effect.rainbowWave" = "Onda arcobaleno";
+"effect.crosshair" = "Mirino";
+"effect.reactiveFade" = "Dissolvenza reattiva";
+"effect.custom" = "Personalizza";
+"effect.stars" = "Stelle";
+"effect.snow" = "Neve";
+"effect.colorCycle" = "Ciclo colore";
+"effect.blink" = "Lampeggio";
+"effect.reactivePunch" = "Pugno reattivo";
+"effect.circularSpectrum" = "Spettro circolare";
+"effect.reactiveTornado" = "Tornado reattivo";
+"effect.waterRipple" = "Ondulazione di acqua";
+"effect.off" = "Spegni";
+
+"mapping.reset" = "Ripristina predefinito";
+
+"hid.group.letters" = "Lettere";
+"hid.group.digits" = "Cifre";
+"hid.group.function" = "Funzione";
+"hid.group.whitespace" = "Speciali";
+"hid.group.navigation" = "Navigazione";
+"hid.group.punctuation" = "Punteggiatura";
+"hid.group.modifiers" = "Modificatori";
+
+"function.playPause" = "Play / Pausa";
+"function.stop" = "Stop";
+"function.previousTrack" = "Traccia precedente";
+"function.nextTrack" = "Traccia successiva";
+"function.mute" = "Muto";
+"function.volumeDown" = "Volume −";
+"function.volumeUp" = "Volume +";
+"function.effectCycleForward" = "Effetto successivo";
+"function.effectCycleBackward" = "Effetto precedente";
+"function.speedDown" = "Velocità −";
+"function.speedUp" = "Velocità +";
+"function.brightnessUp" = "Luminosità +";
+"function.brightnessDown" = "Luminosità −";
+"function.selectProfile" = "Seleziona profilo";
+
+"session.write" = "Scrivi su dispositivo";
+"session.written" = "Scritto sul dispositivo";
+
+"macro.list" = "Macro";
+"macro.new" = "Nuova macro";
+"macro.unnamed" = "Senza nome";
+"macro.events" = "eventi";
+"macro.edit" = "Modifica";
+"macro.selectHint" = "Seleziona o crea una macro";
+"macro.assign" = "Assegna a tasto";
+"macro.name" = "Nome";
+"macro.unmappableChars" = "Carattere non codificabile: %@";
+"macro.nameTooLong" = "Nome troppo lungo (%d su %d byte)";
+"macro.emptyContent" = "Macro vuota: aggiungi testo, una combinazione o degli eventi";
+"macro.noneYet" = "Nessuna macro ancora. Crea la prima con \"Nuova macro\".";
+"macro.noFreeSlot" = "Tutti i 24 slot macro sono occupati";
+"macro.noFreeKey" = "Tutti i 24 tasti hanno già una macro assegnata";
+"macro.confirmSwap.title" = "Tasto già assegnato";
+"macro.confirmSwap.confirm" = "Scambia";
+"macro.confirmSwap.message" = "Questo tasto è già assegnato a \"%@\". Scambiare i due tasti fra le macro?";
+"common.cancel" = "Annulla";
+"session.blockedByMacro" = "\"%@\" non è valida — correggila prima di scrivere";
+"session.macroRemapConflict" = "%d tasti hanno sia una macro sia una rimappatura: comportamento non garantito";
+
+"profiles.list" = "Profili";
+"profiles.empty" = "Nessun profilo salvato. Configura Illuminazione/Mappatura/Macro, poi salva lo stato corrente come profilo.";
+"profiles.saveCurrent" = "Salva stato corrente come nuovo profilo";
+"profiles.name" = "Nome";
+"profiles.macroCount" = "macro";
+"profiles.remapCount" = "rimappature";
+"profiles.defaultName" = "Profilo %d";
+
+"settings.title" = "Impostazioni";
+"settings.language" = "Lingua";
+"settings.device" = "Dispositivo";
+"settings.deviceConnected" = "ControlPad collegato";
+"settings.about" = "Informazioni";
+"settings.aboutText" = "Protocollo USB ricostruito per reverse engineering, indipendente dal software ufficiale Cooler Master. Vedi PROTOCOL.md nel progetto per i dettagli byte per byte.";
+
+"lighting.color1" = "Colore di fondo";
+"lighting.color2" = "Colore di reazione";
+"lighting.colorIgnored" = "Questa modalità scorre da sola tutta la ruota dei colori.";
+"lighting.noColor" = "Questa modalità non usa un colore.";
+"lighting.customHint" = "Tocca un tasto per dargli il colore selezionato.";
+"mapping.source.keyboard" = "Tasto della tastiera";
+"mapping.source.function" = "Funzione del pad";
+"mapping.selected" = "Tasto selezionato";
+"mapping.keyNumber" = "numero sul pad";
+"mapping.defaultIs" = "di fabbrica: %@";
+"mapping.currentAction" = "Assegnato ora";
+"mapping.noneAssigned" = "Comportamento di fabbrica";
+"mapping.hasMacro" = "Su questo tasto c'è anche una macro";
+"function.group.media" = "Media";
+"function.group.lighting" = "Illuminazione";
+"function.group.profile" = "Profili";
+"macro.record" = "Registra";
+"macro.stopRecording" = "Ferma registrazione";
+"macro.recordingNow" = "REGISTRAZIONE — batti i tasti";
+"macro.recordHint" = "Premi Registra e batti la sequenza sulla tastiera del Mac. Verrà catturata com'è, con i tempi reali, e potrai ritoccarla dopo.";
+"macro.subtitle" = "tasto %@ · %d eventi";
+"macro.duration" = "%.1f s";
+"macro.beyondVerified" = "Oltre i %d eventi provati sul dispositivo: dovrebbe funzionare, ma non è stato verificato.";
+"macro.confirmReplace.title" = "Sostituire la registrazione?";
+"macro.confirmReplace.confirm" = "Registra di nuovo";
+"macro.confirmReplace.message" = "La sequenza attuale verrà scartata.";
+
+"macro.assignHint" = "Tocca il tasto del pad che deve eseguire questa macro.";
+"macro.recordingLock" = "Registrazione in corso: il resto dell'app è bloccato finché non premi Ferma.";
+
+"mapping.pad" = "Pad e rotelle";
+"mapping.padHint" = "Scegli un tasto o un verso di rotella, poi assegnagli qualcosa qui sotto.";
+"mapping.assignTo" = "Cosa assegnare";
+"mapping.wheel.left" = "Rotella sinistra";
+"mapping.wheel.right" = "Rotella destra";
+"mapping.wheel.ccw" = "verso sinistra";
+"mapping.wheel.cw" = "verso destra";
+"mapping.wheelDirection" = "verso della rotella";
+"mapping.wheelUnverified" = "Nelle catture le rotelle risultano già assegnate di fabbrica con lo stesso comando dei tasti (LED +/− a sinistra, Volume −/+ a destra). Riassegnarle da qui non è però ancora stato provato: verifica dopo la scrittura.";
+
+"lighting.preview" = "Anteprima";
+"lighting.indicators" = "LED indicatori";
+"lighting.indicatorsHint" = "I quattro LED sopra il pad. Il colore fisso si salva nel pad solo con Scrivi su dispositivo; l'effetto gira solo mentre ControlPad è aperta.";
+"lighting.persistenceHint" = "Applica cambia le luci adesso e il pad le dimentica allo scollegamento: senza Scrivi su dispositivo torna la configurazione rimasta in memoria, anche su un altro computer.";
+"lighting.indicatorEffect" = "Effetto";
+"lighting.indicatorEffect.none" = "Nessuno (solo colore fisso)";
+"lighting.indicatorEffect.hostOnly" = "L'effetto gira solo mentre ControlPad è aperta. Chiudendola i LED tornano al colore fisso.";
+"lighting.indicatorEffect.ownColors" = "Questo effetto ha colori propri: i quattro selettori valgono a effetto spento.";
+
+"indicator.effect.rincorsa" = "Rincorsa";
+"indicator.effect.cometa" = "Cometa";
+"indicator.effect.arrivo" = "Arrivo";
+"indicator.effect.pendolo" = "Pendolo";
+"indicator.effect.riempimento" = "Riempimento";
+"indicator.effect.onda" = "Onda";
+"indicator.effect.arcobaleno" = "Arcobaleno";
+"indicator.effect.respiro" = "Respiro";
+"indicator.effect.battito" = "Battito";
+"indicator.effect.brace" = "Brace";
+"indicator.effect.scintille" = "Scintille";
+"indicator.effect.allarme" = "Allarme";
+"indicator.effect.polizia" = "Polizia";
+"indicator.effect.notifica" = "Notifica";
+"indicator.effect.vuMeter" = "VU meter";
+"indicator.effect.profilo" = "Profilo";
+"indicator.effect.countdown" = "Conto alla rovescia";
+
+"profiles.hint" = "Un profilo conserva illuminazione, LED indicatori, rimappature e macro. Applicandolo viene scritto per intero sul dispositivo.";
+"mapping.factoryAction" = "Di fabbrica: %@";
+"mapping.disable" = "Disattiva tasto";
+"mapping.disabled" = "Disattivato — non scrive nulla";
+"mapping.disabled.short" = "off";

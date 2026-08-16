@@ -1,0 +1,21 @@
+# Build Swift (SPM): rigenerabile, ~190 MB
+ControlPadGUI/.build/
+ControlPadGUI/dist/
+*.xcodeproj
+*.xcworkspace
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+venv/
+.venv/
+
+# macOS
+.DS_Store
+
+# Log del motore, se qualcuno lo copia qui dentro
+*.log
+
+# Le catture .pcapng NON sono ignorate: su macOS non e possibile registrarne
+# di nuove, quindi sono la fonte insostituibile di tutto il protocollo.
