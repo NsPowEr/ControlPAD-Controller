@@ -51,12 +51,32 @@ def _macro_packet(p):
     return p[:2] == b"\x51\x18" and p[4:6] != b"\xff\x3f"
 
 
+# Le quattro voci di rotella nella keymap sono gia assegnate di fabbrica, e in
+# tutte le catture allo stesso modo: per una rotella "nessuna assegnazione" non
+# vuol dire 0x00FF, vuol dire questo.
+ROTELLE_DI_FABBRICA = {
+    0xC6: 0x0192,   # rotella sinistra, verso -: LED piu luminoso
+    0xC7: 0x0193,   # rotella sinistra, verso +: LED piu scuro
+    0xF5: 0x00F5,   # rotella destra, verso -: volume giu
+    0xF6: 0x00F6,   # rotella destra, verso +: volume su
+}
+
+
 def _con_rimappatura(payload, remaps):
-    """51 20 <tasto> 00 <azione a 16 bit>: sotto 0x0100 e un codice HID."""
+    """51 20 <tasto> 00 <azione a 16 bit>: sotto 0x0100 e un codice HID.
+
+    Un tasto assente da `remaps` **non** conserva il valore della sessione
+    registrata. Quella e la configurazione di chi ha fatto la cattura, e
+    lasciarla passare significava scrivere sul pad dieci rimappature che
+    nessuno aveva chiesto — `2` che batte `3`, `r` che batte `t`, `f` che manda
+    Invio, e `x` `c` `v` `Alt` muti perche nella cattura ci stavano sopra le
+    macro. L'interfaccia mostrava "default" e il pad faceva altro.
+
+    Chi non e in `remaps` torna quindi a 0x00FF, il comportamento di fabbrica.
+    Le rotelle fanno eccezione, vedi ROTELLE_DI_FABBRICA.
+    """
     key = payload[2]
-    if key not in remaps:
-        return payload
-    azione = remaps[key]
+    azione = remaps.get(key, ROTELLE_DI_FABBRICA.get(key, NESSUNA_RIMAPPATURA))
     return payload[:4] + bytes([azione & 0xFF, azione >> 8]) + payload[6:]
 
 
@@ -290,20 +310,24 @@ def costruisci(macros=(), remaps=None, lighting=None, profile_keys=None,
     fuori = []
     macro_emesse = False
     flusso = _con_illuminazione(SESSIONE, lighting) if lighting else None
-    slot, velocita_slot = _slot_modalita(lighting)
+    # `slot_luce`, non `slot`: il ciclo delle macro piu sotto scorre anche lui
+    # su una variabile che si chiamerebbe cosi, e sovrascrivendola mandava al
+    # pad il numero di slot dell'ultima macro al posto della modalita scelta —
+    # con una macro nello slot 8 il pad si riaccendeva su Lampeggio.
+    slot_luce, velocita_slot = _slot_modalita(lighting)
 
     for hexstr, gap in SESSIONE:
         payload = bytes.fromhex(hexstr)
 
-        if slot is not None:
+        if slot_luce is not None:
             # I due punti che decidono l'accensione. Senza toccarli, la sessione
             # scriveva i colori giusti in tutti gli slot e poi diceva al pad di
             # mostrare lo slot della cattura, con lo stato persistente a
             # "nessuna selezione".
             if payload[:5] == bytes.fromhex(STATO_ILLUMINAZIONE):
-                payload = _stato_illuminazione(slot, velocita_slot)
+                payload = _stato_illuminazione(slot_luce, velocita_slot)
             elif payload[:4] == bytes.fromhex(SELEZIONE_MODALITA) and payload[4] != 0xFF:
-                payload = bytes.fromhex(SELEZIONE_MODALITA) + bytes([slot])
+                payload = bytes.fromhex(SELEZIONE_MODALITA) + bytes([slot_luce])
 
         if flusso is not None and payload[:2] == b"\x56\x21":
             # Stesso report, stessa posizione nella sequenza: cambia solo il
@@ -317,9 +341,9 @@ def costruisci(macros=(), remaps=None, lighting=None, profile_keys=None,
             if macro_emesse:
                 continue                      # scarta i gruppi originali
             macro_emesse = True
-            for slot, tasto, eventi, nome in macros:
-                fuori.append((bytes([0x51, 0x18, slot, 0x00, tasto, PRESS]), gap))
-                fuori.append((bytes([0x51, 0x19, slot, 0x00]) + nome.encode(), STEP))
+            for slot_macro, tasto, eventi, nome in macros:
+                fuori.append((bytes([0x51, 0x18, slot_macro, 0x00, tasto, PRESS]), gap))
+                fuori.append((bytes([0x51, 0x19, slot_macro, 0x00]) + nome.encode(), STEP))
                 for p in macro_packets(eventi):
                     fuori.append((p, FLASH_SETTLE))
             continue

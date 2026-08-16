@@ -109,7 +109,19 @@ def build(key, color1=None, color2=None, speed=None):
 
     color1/color2 sono (r, g, b, luminosità); speed è un byte. Quello che non
     viene passato resta al valore registrato dall'app, che è già valido.
+
+    "custom" è nella tabella dei quattordici slot ma non qui: quello slot non
+    è un effetto, è la tabella dei colori per singolo tasto, e si scrive con
+    `ControlPad.set_leds`. Chiederlo qui è un errore di chi chiama, e va detto
+    invece di uscire con un KeyError che l'app mostrerebbe così com'è.
     """
+    if key not in BY_KEY:
+        if key in SLOT_ORDER:
+            raise ValueError(
+                f"la modalità {key!r} non è un comando di effetto: "
+                "è la tabella per singolo tasto, usa set_leds/set_grid")
+        raise ValueError(f"modalità di illuminazione sconosciuta: {key!r}")
+
     mode = BY_KEY[key]
     cmd = bytearray(mode.command)
 
