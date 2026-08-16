@@ -13,9 +13,54 @@ final class AppModel {
     /// Configurazione in modifica, condivisa fra le quattro schede: così
     /// passare da Illuminazione a Mappatura non perde nulla, e Profili può
     /// salvare uno scatto di tutto insieme in un colpo solo.
-    var draft = Preset(name: "Corrente")
+    ///
+    /// Sopravvive alla chiusura dell'app: ogni modifica finisce in `draft.json`
+    /// poco dopo. Prima no, e chiudere buttava via tutto quello che non era
+    /// stato prima salvato a mano come profilo — con le macro e le rimappature
+    /// ancora *dentro il pad*, che le tiene in flash, e l'app che riapriva
+    /// vuota senza più modo di mostrarle.
+    var draft = Preset(name: "Corrente") {
+        didSet { autosaveDraft() }
+    }
 
     let presetStore = PresetStore()
+
+    /// Il salvataggio del lavoro in corso, ritardato di poco e rifatto da capo
+    /// a ogni modifica: trascinare un cursore di colore cambia `draft` decine
+    /// di volte al secondo, e non ha senso scrivere un file altrettante.
+    private var draftSaveTask: Task<Void, Never>?
+
+    init() {
+        if let salvato = presetStore.loadDraft() {
+            // Nota: sotto @Observable il didSet scatta anche qui, a differenza
+            // di una proprietà memorizzata normale. Non è un problema — il
+            // salvataggio riscrive quello che ha appena letto — ma è il tipo di
+            // dettaglio che confonde chi legge il codice più tardi.
+            draft = salvato
+        }
+        // Il ritardo del salvataggio lascerebbe fuori l'ultima modifica fatta
+        // un istante prima di ⌘Q: alla chiusura si scrive subito, senza aspettare.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.draftSaveTask?.cancel()
+                self.presetStore.saveDraft(self.draft)
+            }
+        }
+    }
+
+    private func autosaveDraft() {
+        draftSaveTask?.cancel()
+        let scatto = draft
+        draftSaveTask = Task { [presetStore] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            presetStore.saveDraft(scatto)
+        }
+    }
 
     /// Registrazione macro in corso: finché è true la UI si blocca tutta
     /// tranne il pulsante Ferma. Vive qui e non nella scheda Macro perché a

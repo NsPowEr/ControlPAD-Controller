@@ -53,14 +53,41 @@ def _macro_packet(p):
 
 
 # Le quattro voci di rotella nella keymap sono gia assegnate di fabbrica, e in
-# tutte le catture allo stesso modo: per una rotella "nessuna assegnazione" non
-# vuol dire 0x00FF, vuol dire questo.
+# tutte le catture allo stesso modo.
 ROTELLE_DI_FABBRICA = {
     0xC6: 0x0192,   # rotella sinistra, verso -: LED piu luminoso
     0xC7: 0x0193,   # rotella sinistra, verso +: LED piu scuro
     0xF5: 0x00F5,   # rotella destra, verso -: volume giu
     0xF6: 0x00F6,   # rotella destra, verso +: volume su
 }
+
+# L'unico dei ventiquattro tasti che non ha un carattere da battere: nel layout
+# e la posizione (5,2), il tasto n.22, e nelle catture porta 0x0181. E' quindi
+# il ciclo degli effetti il suo comportamento di fabbrica, non un carattere.
+TASTO_EFFETTI = 0xC0
+
+
+def _azione_predefinita(codice):
+    """Cosa deve fare un tasto che l'utente non ha toccato.
+
+    **Non** 0x00FF. Quel codice dice al firmware "nessuna assegnazione", e cosa
+    ne esca dipende dal tasto: provato sul dispositivo il 16 agosto 2026, i
+    tasti n.1 (0x35) e n.17 (0x1D) finiscono a far girare il ciclo dei colori
+    invece di battere il loro carattere, mentre 0x1F, 0x20, 0x21, 0x15, 0x09,
+    0x1B, 0x06 e 0x19 lo battono. Non e deducibile dai byte e non e uniforme,
+    quindi non ci si appoggia sopra.
+
+    Un tasto che deve battere il proprio carattere se lo fa scrivere esplicito,
+    che e la stessa forma della rimappatura gia verificata (`51 20 35 00 3e 00`
+    per mandare il n.1 su F5): qui l'azione e semplicemente il codice del tasto
+    stesso. La sessione registrata usa gia questa forma su 0xE1 e sulle
+    rotelle, quindi non e una forma inventata.
+    """
+    if codice in ROTELLE_DI_FABBRICA:
+        return ROTELLE_DI_FABBRICA[codice]
+    if codice == TASTO_EFFETTI:
+        return FUNZIONI["effetto_avanti"]
+    return codice
 
 
 def _con_rimappatura(payload, remaps):
@@ -73,11 +100,14 @@ def _con_rimappatura(payload, remaps):
     Invio, e `x` `c` `v` `Alt` muti perche nella cattura ci stavano sopra le
     macro. L'interfaccia mostrava "default" e il pad faceva altro.
 
-    Chi non e in `remaps` torna quindi a 0x00FF, il comportamento di fabbrica.
-    Le rotelle fanno eccezione, vedi ROTELLE_DI_FABBRICA.
+    Chi non e in `remaps` prende quindi la sua azione predefinita, e chi chiede
+    esplicitamente 0x00FF pure: dopo la prova sul dispositivo quel codice non
+    e piu un modo di dire "torna com'eri", perche su due tasti non lo fa.
     """
     key = payload[2]
-    azione = remaps.get(key, ROTELLE_DI_FABBRICA.get(key, NESSUNA_RIMAPPATURA))
+    azione = remaps.get(key, NESSUNA_RIMAPPATURA)
+    if azione == NESSUNA_RIMAPPATURA:
+        azione = _azione_predefinita(key)
     return payload[:4] + bytes([azione & 0xFF, azione >> 8]) + payload[6:]
 
 
@@ -220,16 +250,24 @@ SELEZIONE_MODALITA = "51280000"         # + <slot>;  ff = riapplica
 
 
 def _stato_illuminazione(slot, velocita):
-    """`55 50 28 00 05 17 <slot> <velocita> ff ff`, cioe cosa mostrare all'avvio.
+    """`55 50 28 00 05 17 <slot> <velocita> ff ff`, cioe quale modalita mostrare.
 
     Nelle catture dell'app questo registro vale `17 ff ff ff ff` quasi sempre e
     `17 09 04 ff ff` nella cattura 11, dove l'utente aveva girato effetto e
-    velocita coi tasti: slot 9, velocita 4. Rileggendolo dal dispositivo si
-    ritrova quello che vi si e scritto per ultimo, scollegamenti compresi.
+    velocita coi tasti: slot 9, velocita 4.
 
     Ricopiarlo dalla cattura significava scrivere "nessuna selezione" a ogni
-    sessione, e il pad all'accensione ripiegava sul suo default invece di
-    mostrare la modalita scelta.
+    sessione, e il pad ripiegava sul suo default invece di mostrare la modalita
+    scelta.
+
+    **Che sopravviva allo scollegamento non e provato.** Una versione
+    precedente di questo commento lo dava per fatto; la prova sul dispositivo
+    del 16 agosto 2026 dice di no, e concorda con PROTOCOL.md, dove sta scritto
+    che l'illuminazione non resta nemmeno impostata dal software ufficiale — che
+    infatti tiene un servizio residente per riapplicarla. Chi vuole ritrovare i
+    propri colori riattaccando il cavo deve avere l'app aperta: e
+    `AppModel.observeConnection` a rimandarli. Quello che resta davvero in flash
+    sono macro, rimappature e funzioni.
     """
     return bytes.fromhex(STATO_ILLUMINAZIONE) + bytes(
         [0x17, slot & 0xFF, velocita & 0xFF, 0xFF, 0xFF])

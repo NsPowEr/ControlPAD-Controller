@@ -40,7 +40,8 @@ def primo(reports, prefisso):
 class KeymapSenzaEredita(unittest.TestCase):
     """La sessione registrata porta la configurazione di chi ha fatto la
     cattura: dieci tasti con un'azione non di fabbrica. Un tasto che l'utente
-    non ha toccato deve uscire a 0x00FF, non con quei valori."""
+    non ha toccato non deve uscire con quei valori — e nemmeno con 0x00FF,
+    vedi session._azione_predefinita."""
 
     def test_skeleton_contiene_davvero_le_rimappature_della_cattura(self):
         # Se un giorno lo skeleton venisse rigenerato pulito, questo test cade
@@ -51,11 +52,40 @@ class KeymapSenzaEredita(unittest.TestCase):
                    if p[:2] == b"\x51\x20" and (p[4] | (p[5] << 8)) != NESSUNA}
         self.assertTrue(sporchi & {0x1F, 0x15, 0x09, 0x1B, 0x06, 0x19})
 
-    def test_senza_remaps_ogni_tasto_torna_di_fabbrica(self):
+    def test_senza_remaps_ogni_tasto_batte_il_proprio_carattere(self):
+        # Provato sul dispositivo: con 0x00FF i tasti n.1 (0x35) e n.17 (0x1D)
+        # facevano girare il ciclo dei colori invece di battere il loro
+        # carattere. Il codice va scritto esplicito.
         km = keymap(session.costruisci())
         for codice in tutti_i_tasti():
-            self.assertEqual(km[codice], NESSUNA,
-                             f"tasto 0x{codice:02x} non e tornato di fabbrica")
+            if codice == session.TASTO_EFFETTI:
+                continue
+            self.assertEqual(km[codice], codice,
+                             f"tasto 0x{codice:02x} non batte se stesso")
+
+    def test_nessun_tasto_esce_a_0x00ff(self):
+        km = keymap(session.costruisci())
+        self.assertNotIn(NESSUNA, km.values())
+
+    def test_il_tasto_senza_carattere_fa_girare_gli_effetti(self):
+        # Il n.22 (0xC0) e l'unico dei ventiquattro senza un carattere da
+        # battere, e nelle catture porta 0x0181.
+        km = keymap(session.costruisci())
+        self.assertEqual(km[session.TASTO_EFFETTI], session.FUNZIONI["effetto_avanti"])
+
+    def test_solo_un_tasto_fa_girare_gli_effetti(self):
+        km = keymap(session.costruisci())
+        effetti = [k for k, azione in km.items()
+                   if azione in (session.FUNZIONI["effetto_avanti"],
+                                 session.FUNZIONI["effetto_indietro"])]
+        self.assertEqual(effetti, [session.TASTO_EFFETTI])
+
+    def test_chiedere_il_default_esplicito_da_lo_stesso_risultato(self):
+        # "Comportamento di fabbrica" scelto dall'interfaccia non deve
+        # rimettere 0x00FF, o si ricasca nel ciclo colori sui due tasti.
+        km = keymap(session.costruisci(remaps={0x35: NESSUNA, 0x1D: NESSUNA}))
+        self.assertEqual(km[0x35], 0x35)
+        self.assertEqual(km[0x1D], 0x1D)
 
     def test_i_tasti_muti_della_cattura_non_restano_muti(self):
         # x, c, v e Alt portavano le macro della cattura, quindi avevano azione
@@ -75,7 +105,7 @@ class KeymapSenzaEredita(unittest.TestCase):
     def test_la_rimappatura_chiesta_passa(self):
         km = keymap(session.costruisci(remaps={0x14: 0x3E}))
         self.assertEqual(km[0x14], 0x3E)
-        self.assertEqual(km[0x1A], NESSUNA)      # il vicino resta di fabbrica
+        self.assertEqual(km[0x1A], 0x1A)         # il vicino resta com'era
 
     def test_una_rotella_riassegnata_vince_sul_valore_di_fabbrica(self):
         km = keymap(session.costruisci(remaps={0xC6: 0x00F0}))

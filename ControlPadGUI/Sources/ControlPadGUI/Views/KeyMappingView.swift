@@ -294,12 +294,17 @@ struct KeyMappingView: View {
         case .function(let f): return L(f.titleKey)
         case .disabled: return L("mapping.disabled")
         case .factoryDefault, nil:
-            if case .wheel(let code) = target,
-               let action = KeyLayout.factoryAction(forWheelKey: code),
-               let function = SpecialFunctions.function(for: action) {
+            // "Comportamento di fabbrica" da solo non dice niente, e su due
+            // tasti diceva pure il falso: il n.22 fa girare gli effetti, non
+            // batte un carattere. Qui si mostra l'azione che verrà scritta
+            // davvero — la stessa che calcola KeyLayout.defaultAction.
+            guard let key = selectedKey else { return L("mapping.noneAssigned") }
+            let action = KeyLayout.defaultAction(forKey: key)
+            if let function = SpecialFunctions.function(for: action) {
                 return String(format: L("mapping.factoryAction"), L(function.titleKey))
             }
-            return L("mapping.noneAssigned")
+            return String(format: L("mapping.factoryAction"),
+                          KeyboardLayout.label(for: UInt8(truncatingIfNeeded: action)))
         }
     }
 

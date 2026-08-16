@@ -64,6 +64,26 @@ enum KeyLayout {
               factoryClockwise: 0x00F6),         // Volume +
     ]
 
+    /// Il tasto n.22, posizione (5,2): l'unico dei ventiquattro senza un
+    /// carattere da battere. Di fabbrica fa girare il ciclo degli effetti, ed è
+    /// così che compare in tutte le catture.
+    static let effectCycleKey: UInt8 = 0xC0
+
+    /// Cosa fa un tasto a cui non si è assegnato niente.
+    ///
+    /// **Non** `0x00FF`. Quel codice dice al firmware "nessuna assegnazione", e
+    /// cosa ne esca dipende dal tasto: provato sul dispositivo, il n.1 (0x35) e
+    /// il n.17 (0x1D) finivano a far girare il ciclo dei colori invece di
+    /// battere il loro carattere. Il pad va quindi scritto esplicito, tasto per
+    /// tasto — vedi `session._azione_predefinita`, che fa la stessa cosa dal
+    /// lato del motore. Qui serve a mostrare nell'interfaccia quello che il
+    /// tasto farà davvero.
+    static func defaultAction(forKey code: UInt8) -> UInt16 {
+        if let factory = factoryAction(forWheelKey: code) { return factory }
+        if code == effectCycleKey { return SpecialFunctions.effectCycleForward }
+        return UInt16(code)
+    }
+
     /// L'azione di fabbrica di un verso di rotella, se quel codice è una rotella.
     static func factoryAction(forWheelKey code: UInt8) -> UInt16? {
         for wheel in wheels {

@@ -11,13 +11,39 @@ final class PresetStore {
     /// memoria non vale niente e non va salvata sopra l'originale.
     private(set) var loadError: String?
     private let fileURL: URL
+    private let draftURL: URL
 
     init() {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("ControlPad", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         fileURL = dir.appendingPathComponent("presets.json")
+        draftURL = dir.appendingPathComponent("draft.json")
         load()
+    }
+
+    // MARK: - La configurazione in modifica
+
+    /// Il lavoro in corso, salvato a parte dai profili.
+    ///
+    /// Senza questo, chiudere l'app buttava via tutto quello che non era stato
+    /// prima salvato a mano come profilo: macro appena registrate, tasti
+    /// rimappati, colori scelti. Nel pad restavano — macro e keymap stanno in
+    /// flash — ma l'app riapriva vuota e non aveva più modo di mostrarli, il
+    /// che è peggio che perderli: la configurazione visibile e quella reale
+    /// dicevano due cose diverse.
+    ///
+    /// Sta in `draft.json` e non dentro `presets.json` perché non è un profilo:
+    /// non ha un nome scelto, non compare nell'elenco, e va riscritto a ogni
+    /// modifica invece che a ogni comando esplicito.
+    func loadDraft() -> Preset? {
+        guard let data = try? Data(contentsOf: draftURL) else { return nil }
+        return try? JSONDecoder().decode(Preset.self, from: data)
+    }
+
+    func saveDraft(_ draft: Preset) {
+        guard let data = try? JSONEncoder().encode(draft) else { return }
+        try? data.write(to: draftURL, options: .atomic)
     }
 
     /// Distingue i tre casi che prima finivano tutti in una lista vuota:

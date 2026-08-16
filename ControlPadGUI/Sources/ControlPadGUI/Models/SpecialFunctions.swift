@@ -68,6 +68,10 @@ enum SpecialFunctions {
     /// Codice che riporta un tasto al comportamento di fabbrica (NESSUNA_RIMAPPATURA).
     static let none: UInt16 = 0x00FF
 
+    /// Ciclo degli effetti in avanti. È il comportamento di fabbrica del solo
+    /// tasto n.22, l'unico dei ventiquattro che non ha un carattere da battere.
+    static let effectCycleForward: UInt16 = 0x0181
+
     /// "Questo tasto cambia profilo" — e basta: *quale* profilo sta in una
     /// tabella a parte (`51 90`, indicizzata per colonne). Servono entrambe le
     /// scritture, o il tasto conserva l'assegnazione che aveva prima.
