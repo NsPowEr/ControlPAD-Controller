@@ -11,6 +11,18 @@ struct ProfilesView: View {
         VStack(spacing: Metrics.gap) {
             GlassCard(titleKey: "profiles.list", subtitleKey: "profiles.hint") {
                 VStack(spacing: Metrics.stack) {
+                    // Un file dei profili illeggibile dava una lista vuota
+                    // identica a quella del primo avvio, e il salvataggio
+                    // successivo ci scriveva sopra. Ora si vede, e finché si
+                    // vede non si salva niente.
+                    if let loadError = app.presetStore.loadError {
+                        Label(String(format: L("profiles.loadFailed"), loadError),
+                              systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
                     if app.presetStore.presets.isEmpty {
                         Text(L("profiles.empty"))
                             .font(.callout)
@@ -33,6 +45,7 @@ struct ProfilesView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(app.presetStore.loadError != nil)
                 }
             }
             .frame(maxWidth: 620)

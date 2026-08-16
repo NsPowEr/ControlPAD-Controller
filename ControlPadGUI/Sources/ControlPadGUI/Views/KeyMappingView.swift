@@ -199,6 +199,8 @@ struct KeyMappingView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
+                if isProfileSelector { profileSelectorControl }
+
                 Spacer(minLength: 0)
 
                 // Tasto muto: nelle catture è l'azione 0x0000, quella che
@@ -215,6 +217,9 @@ struct KeyMappingView: View {
 
                 Button(role: .destructive) {
                     if let key = selectedKey { app.draft.remaps.removeValue(forKey: key) }
+                    if let index = selectedColumnIndex {
+                        app.draft.profileSelectors.removeValue(forKey: index)
+                    }
                 } label: {
                     Text(L("mapping.reset")).frame(maxWidth: .infinity)
                 }
@@ -308,9 +313,72 @@ struct KeyMappingView: View {
         return nil
     }
 
+    // MARK: - Tasto selettore di profilo
+
+    /// `0x0110` dice soltanto "questo tasto cambia profilo". *Quale* profilo
+    /// sta in una tabella a parte (`51 90`), un byte per tasto, indicizzata per
+    /// colonne. Servono entrambe le scritture: con la sola funzione nella
+    /// keymap il tasto conserva il numero di profilo che aveva prima, che è il
+    /// tipo di sorpresa che fa sembrare rotto un programma che funziona.
+    private var isProfileSelector: Bool {
+        if case .function(let f) = currentAction { return f.code == SpecialFunctions.selectProfile }
+        return false
+    }
+
+    /// L'indice per colonne del tasto selezionato — la numerazione della
+    /// tabella dei profili, che non è quella per righe della keymap. Le
+    /// rotelle non ne hanno uno: nella tabella entrano solo i 24 tasti.
+    private var selectedColumnIndex: Int? {
+        if case .pad(let position) = target { return KeyLayout.columnIndex(position) }
+        return nil
+    }
+
+    @ViewBuilder
+    private var profileSelectorControl: some View {
+        if let index = selectedColumnIndex {
+            let profile = app.draft.profileSelectors[index] ?? 0
+            VStack(alignment: .leading, spacing: 4) {
+                Divider().opacity(0.4)
+                Stepper(value: Binding(
+                    get: { profile },
+                    set: { app.draft.profileSelectors[index] = $0 }
+                ), in: 0...(SpecialFunctions.profileCount - 1)) {
+                    Text(String(format: L("mapping.profileNumber"), profile + 1))
+                        .font(.system(size: 12, weight: .semibold))
+                        .monospacedDigit()
+                }
+                Text(L("mapping.profileNumberHint"))
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } else {
+            // Una rotella può prendere la funzione, ma la tabella `51 90` ha
+            // una voce per tasto e nessuna per le rotelle: non c'è modo di
+            // dire quale profilo, e prometterlo sarebbe prometterlo a vuoto.
+            Label(L("mapping.profileWheelUnsupported"), systemImage: "exclamationmark.triangle")
+                .font(.system(size: 9))
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private func assign(_ action: RemapAction) {
         guard let key = selectedKey else { return }
         app.draft.remaps[key] = action
+
+        // La voce nella tabella dei profili segue la funzione: compare quando
+        // il tasto diventa un selettore, sparisce quando smette di esserlo —
+        // altrimenti resterebbe a dire "profilo N" per un tasto che ormai fa
+        // altro, e verrebbe scritta lo stesso.
+        guard let index = selectedColumnIndex else { return }
+        if case .function(let f) = action, f.code == SpecialFunctions.selectProfile {
+            if app.draft.profileSelectors[index] == nil {
+                app.draft.profileSelectors[index] = 0
+            }
+        } else {
+            app.draft.profileSelectors.removeValue(forKey: index)
+        }
     }
 
     /// L'etichetta piccola sotto al numero: prima la macro, che è la cosa più

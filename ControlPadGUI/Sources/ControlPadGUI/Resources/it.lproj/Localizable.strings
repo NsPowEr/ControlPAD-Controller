@@ -84,6 +84,7 @@
 
 "profiles.list" = "Profili";
 "profiles.empty" = "Nessun profilo salvato. Configura Illuminazione/Mappatura/Macro, poi salva lo stato corrente come profilo.";
+"profiles.loadFailed" = "Il file dei profili esiste ma non si è lasciato leggere (%@). Non viene sovrascritto: i profili sono ancora in ~/Library/Application Support/ControlPad/presets.json.";
 "profiles.saveCurrent" = "Salva stato corrente come nuovo profilo";
 "profiles.name" = "Nome";
 "profiles.macroCount" = "macro";
@@ -135,7 +136,10 @@
 "mapping.wheel.ccw" = "verso sinistra";
 "mapping.wheel.cw" = "verso destra";
 "mapping.wheelDirection" = "verso della rotella";
-"mapping.wheelUnverified" = "Nelle catture le rotelle risultano già assegnate di fabbrica con lo stesso comando dei tasti (LED +/− a sinistra, Volume −/+ a destra). Riassegnarle da qui non è però ancora stato provato: verifica dopo la scrittura.";
+"mapping.profileNumber" = "Attiva il profilo %d";
+"mapping.profileNumberHint" = "Sono i banchi del dispositivo, non i profili salvati in questa app: il tasto li cambia da solo, anche senza l'app aperta.";
+"mapping.profileWheelUnsupported" = "La tabella dei profili ha una voce per tasto e nessuna per le rotelle: da qui non si può dire quale profilo attivare.";
+"mapping.wheelUnverified" ="Nelle catture le rotelle risultano già assegnate di fabbrica con lo stesso comando dei tasti (LED +/− a sinistra, Volume −/+ a destra). Riassegnarle da qui non è però ancora stato provato: verifica dopo la scrittura.";
 
 "lighting.preview" = "Anteprima";
 "lighting.indicators" = "LED indicatori";

@@ -13,7 +13,16 @@ actor PythonBridge {
     private var stdin: FileHandle?
     private var nextID = 0
     private var pending: [Int: CheckedContinuation<JSONValue, Error>] = [:]
+    /// Il cronometro di ogni richiesta in volo, annullato appena la risposta
+    /// arriva. Senza, una richiesta senza risposta resterebbe sospesa per
+    /// sempre e con lei la schermata che la aspetta.
+    private var deadlines: [Int: Task<Void, Never>] = [:]
     private var readLoop: Task<Void, Never>?
+
+    /// Quanto si aspetta una risposta prima di dichiararla persa. La
+    /// scrittura di sessione è la più lenta — oltre centocinquanta report, con
+    /// ~72 ms di pausa dopo ogni corpo macro — e resta comodamente sotto.
+    private static let requestTimeout: Duration = .seconds(45)
 
     private let connectionStream: AsyncStream<Bool>
     private let connectionContinuation: AsyncStream<Bool>.Continuation
@@ -47,6 +56,14 @@ actor PythonBridge {
         // stesso file di log che si scrive il motore.
         process.standardError = Self.engineLogHandle() ?? FileHandle.nullDevice
 
+        // Il motore che muore — import mancante, pad che fa cadere hidapi,
+        // kill dall'esterno — non deve lasciare l'app ad aspettare: senza
+        // questo, ogni richiesta in volo restava sospesa per sempre e il
+        // pulsante "Scrivi su dispositivo" girava all'infinito senza errore.
+        process.terminationHandler = { [weak self] finito in
+            Task { await self?.engineDidExit(status: finito.terminationStatus) }
+        }
+
         try process.run()
 
         self.process = process
@@ -62,21 +79,71 @@ actor PythonBridge {
             } catch {
                 // Pipe chiusa: il processo è terminato, non c'è altro da leggere.
             }
+            // Fine dello stdout: o il motore è uscito, o la pipe è caduta. In
+            // entrambi i casi nessuna risposta arriverà più.
+            await self.engineDidExit(status: nil)
         }
     }
 
+    /// Chiude il motore in modo esplicito.
+    ///
+    /// Non viene chiamata alla chiusura dell'app, ed è voluto: uscendo, il
+    /// sistema chiude lo stdin del sottoprocesso, il motore lo vede come EOF e
+    /// fa in tempo a rimettere i colori fissi sui quattro LED indicatori — che
+    /// sopravvivono allo scollegamento, quindi resterebbero sull'ultimo
+    /// fotogramma di un'animazione. `terminate()` gli manda invece SIGTERM
+    /// mentre l'app sta già sparendo, e il ripristino potrebbe non arrivare in
+    /// fondo. Serve a chi vuole fermarlo *senza* chiudere l'app.
     func stop() {
         readLoop?.cancel()
+        readLoop = nil
         process?.terminate()
         process = nil
         stdin = nil
+        failAllPending(BridgeError(message: "motore Python fermato"))
+    }
+
+    /// Il motore non c'è più: si sveglia chi lo stava aspettando e si segnala
+    /// il pad come non raggiungibile, che è ciò che l'utente vede.
+    private func engineDidExit(status: Int32?) {
+        guard process != nil || !pending.isEmpty else { return }
+        process = nil
+        stdin = nil
+        let coda = status.map { " (uscito con stato \($0))" } ?? ""
+        failAllPending(BridgeError(
+            message: "il motore Python si è chiuso\(coda) — "
+                   + "vedi ~/Library/Logs/ControlPad-engine.log"))
+        connectionContinuation.yield(false)
+    }
+
+    private func failAllPending(_ error: Error) {
+        let inVolo = pending
+        pending.removeAll()
+        deadlines.values.forEach { $0.cancel() }
+        deadlines.removeAll()
+        for (_, continuation) in inVolo {
+            continuation.resume(throwing: error)
+        }
+    }
+
+    /// Nessuna risposta entro il tempo massimo. Chi arriva primo fra questa e
+    /// `handleLine` si prende la continuation togliendola dal dizionario, così
+    /// non viene mai ripresa due volte.
+    private func expire(_ id: Int, cmd: String) {
+        deadlines.removeValue(forKey: id)
+        guard let continuation = pending.removeValue(forKey: id) else { return }
+        continuation.resume(throwing: BridgeError(
+            message: "il motore non ha risposto a \"\(cmd)\" — "
+                   + "vedi ~/Library/Logs/ControlPad-engine.log"))
     }
 
     /// Invia un comando e aspetta la risposta corrispondente. `payload` non
     /// deve contenere "id" né "cmd": li aggiunge questo metodo.
     @discardableResult
     func send(_ cmd: String, _ payload: [String: JSONValue] = [:]) async throws -> JSONValue {
-        guard let stdin else { throw BridgeError(message: "motore Python non avviato") }
+        guard let stdin, process != nil else {
+            throw BridgeError(message: "motore Python non avviato")
+        }
 
         nextID += 1
         let id = nextID
@@ -90,6 +157,11 @@ actor PythonBridge {
             pending[id] = continuation
             do {
                 try stdin.write(contentsOf: data + Data([0x0A]))
+                deadlines[id] = Task { [weak self] in
+                    try? await Task.sleep(for: Self.requestTimeout)
+                    guard !Task.isCancelled else { return }
+                    await self?.expire(id, cmd: cmd)
+                }
             } catch {
                 pending.removeValue(forKey: id)
                 continuation.resume(throwing: error)
@@ -111,6 +183,7 @@ actor PythonBridge {
 
         guard let id = obj["id"]?.intValue,
               let continuation = pending.removeValue(forKey: id) else { return }
+        deadlines.removeValue(forKey: id)?.cancel()
 
         if obj["ok"]?.boolValue == true {
             continuation.resume(returning: value)

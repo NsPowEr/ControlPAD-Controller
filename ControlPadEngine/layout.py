@@ -64,9 +64,20 @@ def posizione(codice_hid):
 
 
 def tasto_da_indice_colonne(indice):
-    """Il contrario di indice_colonne: serve per la tabella dei profili."""
+    """Il contrario di indice_colonne: serve per la tabella dei profili.
+
+    L'indice 24 e l'unico dei venticinque a non avere un tasto: e la posizione
+    che lo spazio occupa senza esserci. Restituire None faceva cadere il
+    chiamante piu tardi e altrove, con un messaggio che non c'entrava niente.
+    """
+    if not 0 <= indice < RIGHE * COLONNE:
+        raise KeyError(f"indice per colonne fuori dalla griglia: {indice}")
     colonna, riga = divmod(indice, RIGHE)
-    return GRIGLIA[riga][colonna]
+    codice = GRIGLIA[riga][colonna]
+    if codice is None:
+        raise KeyError(f"l'indice {indice} non ha un tasto: "
+                       "e la seconda posizione dello spazio")
+    return codice
 
 
 def tutti_i_tasti():

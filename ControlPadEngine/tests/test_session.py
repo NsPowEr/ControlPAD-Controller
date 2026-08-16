@@ -222,6 +222,18 @@ class Layout(unittest.TestCase):
         self.assertEqual(len(tutti_i_tasti()), 24)
         self.assertEqual(sum(1 for r in GRIGLIA for k in r if k is None), 1)
 
+    def test_la_posizione_senza_tasto_e_un_errore_esplicito(self):
+        from layout import tasto_da_indice_colonne
+        with self.assertRaises(KeyError):
+            tasto_da_indice_colonne(24)      # la seconda meta dello spazio
+        with self.assertRaises(KeyError):
+            tasto_da_indice_colonne(25)
+
+    def test_ogni_altro_indice_ha_il_suo_tasto(self):
+        from layout import tasto_da_indice_colonne
+        codici = [tasto_da_indice_colonne(i) for i in range(24)]
+        self.assertEqual(sorted(codici), sorted(tutti_i_tasti()))
+
 
 if __name__ == "__main__":
     unittest.main()

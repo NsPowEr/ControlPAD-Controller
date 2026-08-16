@@ -84,6 +84,7 @@
 
 "profiles.list" = "Profiles";
 "profiles.empty" = "No saved profiles yet. Set up Lighting/Key Mapping/Macros, then save the current state as a profile.";
+"profiles.loadFailed" = "The profiles file exists but could not be read (%@). It is left untouched: your profiles are still in ~/Library/Application Support/ControlPad/presets.json.";
 "profiles.saveCurrent" = "Save current state as new profile";
 "profiles.name" = "Name";
 "profiles.macroCount" = "macros";
@@ -135,7 +136,10 @@
 "mapping.wheel.ccw" = "counter-clockwise";
 "mapping.wheel.cw" = "clockwise";
 "mapping.wheelDirection" = "wheel direction";
-"mapping.wheelUnverified" = "The captures show the wheels already assigned from the factory through the same command as the keys (LED +/− on the left, Volume −/+ on the right). Reassigning them from here hasn't been tried yet: verify after writing.";
+"mapping.profileNumber" = "Switches to profile %d";
+"mapping.profileNumberHint" = "These are the device's own banks, not the profiles saved in this app: the key switches them by itself, with the app closed.";
+"mapping.profileWheelUnsupported" = "The profile table holds one entry per key and none for the wheels, so there is no way to say which profile to switch to.";
+"mapping.wheelUnverified" ="The captures show the wheels already assigned from the factory through the same command as the keys (LED +/− on the left, Volume −/+ on the right). Reassigning them from here hasn't been tried yet: verify after writing.";
 
 "lighting.preview" = "Preview";
 "lighting.indicators" = "Indicator LEDs";
