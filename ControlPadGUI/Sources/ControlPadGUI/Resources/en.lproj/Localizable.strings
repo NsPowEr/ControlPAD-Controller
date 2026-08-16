@@ -60,6 +60,7 @@
 
 "session.write" = "Write to Device";
 "session.written" = "Written to device";
+"session.missingAcks" = "Written, but %d commands never answered: check the keys and macros on the pad";
 
 "macro.list" = "Macros";
 "macro.new" = "New Macro";

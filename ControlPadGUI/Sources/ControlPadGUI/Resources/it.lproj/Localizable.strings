@@ -60,6 +60,7 @@
 
 "session.write" = "Scrivi su dispositivo";
 "session.written" = "Scritto sul dispositivo";
+"session.missingAcks" = "Scritto, ma %d comandi non hanno risposto: ricontrolla tasti e macro sul pad";
 
 "macro.list" = "Macro";
 "macro.new" = "Nuova macro";

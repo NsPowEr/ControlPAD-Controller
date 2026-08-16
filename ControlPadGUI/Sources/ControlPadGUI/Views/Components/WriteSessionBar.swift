@@ -11,6 +11,11 @@ struct WriteSessionBar: View {
     @State private var isWriting = false
     @State private var errorMessage: String?
     @State private var didSucceed = false
+    /// Report rimasti senza conferma nell'ultima scrittura. Il device ACKa
+    /// anche quello che non esegue, quindi zero non prova che sia andato tutto
+    /// bene — ma un numero diverso da zero prova che qualcosa non è arrivato,
+    /// ed è l'unico segnale che l'host possa dare da solo.
+    @State private var missingAcks = 0
 
     private var blockingReason: String? {
         guard let bad = app.draft.invalidMacros.first else { return nil }
@@ -40,6 +45,11 @@ struct WriteSessionBar: View {
                     Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(.red)
+                } else if didSucceed && missingAcks > 0 {
+                    Label(String(format: L("session.missingAcks"), missingAcks),
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
                 } else if didSucceed {
                     Label(L("session.written"), systemImage: "checkmark.circle.fill")
                         .font(.caption)
@@ -70,7 +80,7 @@ struct WriteSessionBar: View {
         do {
             // writeDraft, non bridge.writeSession: la scrittura di sessione da
             // sola riporta l'illuminazione a quella della cattura originale.
-            try await app.writeDraft()
+            missingAcks = try await app.writeDraft()
             didSucceed = true
         } catch {
             errorMessage = error.localizedDescription

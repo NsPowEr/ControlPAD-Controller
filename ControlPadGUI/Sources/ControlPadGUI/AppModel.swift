@@ -100,13 +100,17 @@ final class AppModel {
     /// porta anche il blob di illuminazione (`56 15` × 14, `56 21` × 11) e
     /// chiude con l'apply — senza questo passaggio ogni modifica a una macro o
     /// a un tasto riporterebbe le luci a quelle della cattura.
-    func writeDraft() async throws {
+    /// Restituisce quanti report non hanno ricevuto la loro conferma: zero è
+    /// l'unico valore che dica che è passata tutta.
+    @discardableResult
+    func writeDraft() async throws -> Int {
         // L'animazione dei LED la ferma il motore da sé: ogni comando che apre
         // il device per conto suo — la scrittura di sessione per prima — aspetta
         // che il thread dei LED lo abbia lasciato, perché due handle insieme
         // sullo stesso device non sono garantiti. Riparte da applyLighting.
-        try await bridge.writeSession(preset: draft)
+        let senzaAck = try await bridge.writeSession(preset: draft)
         try await applyLighting(draft.lighting)
+        return senzaAck
     }
 
     /// Rende un profilo salvato quello corrente e lo scrive per intero sul

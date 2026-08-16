@@ -126,7 +126,13 @@ extension PythonBridge {
 
     /// Scrittura permanente: macro, rimappature, illuminazione salvata nel
     /// profilo, tasti selettori. Corrisponde a session.scrivi().
-    func writeSession(preset: Preset) async throws {
+    ///
+    /// Restituisce quanti report non hanno ricevuto la loro conferma. Zero è
+    /// l'unico valore che dica che la scrittura è passata tutta: il device
+    /// ACKa anche quello che non esegue, ma non ACKare affatto è un guasto, e
+    /// tacerlo lo farebbe somigliare a un successo.
+    @discardableResult
+    func writeSession(preset: Preset) async throws -> Int {
         var payload: [String: JSONValue] = [:]
 
         if !preset.macros.isEmpty {
@@ -216,6 +222,7 @@ extension PythonBridge {
                                          brightness: preset.lighting.brightness)
                 .map { .array([.int(Int($0.r)), .int(Int($0.g)), .int(Int($0.b))]) })
 
-        try await send("write_session", payload)
+        let reply = try await send("write_session", payload)
+        return reply["missing_acks"]?.intValue ?? 0
     }
 }
