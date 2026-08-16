@@ -322,9 +322,17 @@ def handle(req):
         indicators = [tuple(c) for c in req.get("indicators", [])] or None
         if indicators:
                 _colori_fissi = indicators
-        session_scrivi(macros=macros, remaps=remaps, lighting=lighting,
-                        profile_keys=profile_keys, indicators=indicators)
-        return {}
+        # Quanti report non hanno ricevuto la loro conferma. Zero e l'unico
+        # valore che dica che la scrittura e passata tutta: il device ACKa
+        # anche quello che non esegue, ma non ACKare del tutto e un guasto
+        # visibile, e l'app deve poterlo dire invece di mostrare un successo.
+        senza_ack = session_scrivi(macros=macros, remaps=remaps,
+                                    lighting=lighting,
+                                    profile_keys=profile_keys,
+                                    indicators=indicators)
+        if senza_ack:
+            _log(f"!! scrittura sessione: {senza_ack} report senza ACK")
+        return {"missing_acks": senza_ack}
 
     raise ValueError(f"comando sconosciuto: {cmd!r}")
 

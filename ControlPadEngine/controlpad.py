@@ -85,6 +85,40 @@ def _pad(data):
     return data + bytes(REPORT_SIZE - len(data))
 
 
+def attendi_ack(dev, opcode, timeout_ms=100, verbose=False, label=""):
+    """Read until the acknowledgement echoing `opcode`, dropping the rest.
+
+    Module level rather than a method because session.py needs the same rule
+    on its own handle: reading once and taking whatever arrives is the trap
+    that cost this project the four indicator LEDs. The device interleaves
+    unsolicited reports (ff aa key and wheel state, an occasional 42 20)
+    between a command and its echo, so a single read leaves the IN queue one
+    behind, then two, and past that point the device keeps acknowledging while
+    it stops executing — with every software indicator saying the write went
+    through.
+
+    Returns the full 64-byte reply — the read commands (55 40) carry their
+    answer in it — or None if the echo never arrives inside the timeout.
+    """
+    deadline = time.perf_counter() + timeout_ms / 1000
+    while True:
+        left_ms = int((deadline - time.perf_counter()) * 1000)
+        if left_ms <= 0:
+            if verbose:
+                print(f"  {label:<10} <no ack>")
+            return None
+        reply = dev.read(REPORT_SIZE, timeout_ms=max(1, left_ms))
+        if not reply:
+            continue
+        reply = bytes(reply)
+        if reply[:2] == opcode:
+            if verbose:
+                print(f"  {label:<10} {reply.hex()[:8]}")
+            return reply
+        if verbose:
+            print(f"  {label:<10} scarto {reply.hex()[:8]}")
+
+
 class ControlPad:
     def __init__(self, verbose=False):
         self.verbose = verbose
@@ -127,28 +161,8 @@ class ControlPad:
         return reply
 
     def _ack(self, opcode, label="", timeout_ms=100):
-        """Read until the acknowledgement echoing `opcode`, dropping the rest.
-
-        Returns the full 64-byte reply — the read commands (55 40) carry their
-        answer in it — or None if the echo never arrives inside the timeout.
-        """
-        deadline = time.perf_counter() + timeout_ms / 1000
-        while True:
-            left_ms = int((deadline - time.perf_counter()) * 1000)
-            if left_ms <= 0:
-                if self.verbose:
-                    print(f"  {label:<10} <no ack>")
-                return None
-            reply = self.dev.read(REPORT_SIZE, timeout_ms=max(1, left_ms))
-            if not reply:
-                continue
-            reply = bytes(reply)
-            if reply[:2] == opcode:
-                if self.verbose:
-                    print(f"  {label:<10} {reply.hex()[:8]}")
-                return reply
-            if self.verbose:
-                print(f"  {label:<10} scarto {reply.hex()[:8]}")
+        """Read until this command's own acknowledgement — see attendi_ack."""
+        return attendi_ack(self.dev, opcode, timeout_ms, self.verbose, label)
 
     def _finish(self):
         self._send(COMMIT, "commit")

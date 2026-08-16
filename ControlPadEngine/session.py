@@ -14,6 +14,7 @@ import time
 import hid
 
 import effects
+from controlpad import attendi_ack
 from layout import tasto_da_indice_colonne
 from macro import macro_packets, PRESS
 from skeleton import SESSIONE
@@ -365,27 +366,50 @@ def costruisci(macros=(), remaps=None, lighting=None, profile_keys=None,
     return fuori
 
 
-def invia(reports, verbose=False):
+def invia(reports, verbose=False, timeout_ms=100):
+    """Manda la sessione, aspettando per ogni report *il suo* ACK.
+
+    Leggerne uno solo e tenere quello che arriva era la stessa trappola che
+    per un giorno ha fatto credere non indirizzabili i quattro LED
+    indicatori: il device intercala report non richiesti (`ff aa` stato di
+    tasti e rotelle, un `42 20` occasionale) fra un comando e la sua conferma,
+    e le letture slittano di uno, poi di due, finche il pad continua ad ACKare
+    e smette di eseguire. Qui la deriva conta piu che altrove, perche una
+    sessione e lunga oltre centocinquanta report.
+
+    Il fallimento e muto per definizione: se l'eco non arriva entro il
+    timeout si va avanti lo stesso — e quello che faceva anche prima — ma
+    `verbose` lo dice, ed e l'unico modo di accorgersene senza guardare il pad.
+    """
     path = next((d["path"] for d in hid.enumerate(VID, PID)
                  if d.get("usage_page") == 0xFF00), None)
     if path is None:
         raise SystemExit("ControlPad non trovato: e collegato?")
     dev = hid.device()
     dev.open_path(path)
+    senza_ack = 0
     try:
         for payload, gap in reports:
             if gap:
                 time.sleep(min(gap, 0.5))
             dev.write(bytes([0x00]) + payload[:REPORT].ljust(REPORT, b"\0"))
-            dev.read(REPORT, timeout_ms=100)
+            if attendi_ack(dev, payload[:2], timeout_ms) is None:
+                senza_ack += 1
+                if verbose:
+                    print(f"  nessun ACK per {payload[:4].hex()}")
     finally:
         dev.close()
     if verbose:
-        print(f"inviati {len(reports)} report")
+        print(f"inviati {len(reports)} report, {senza_ack} senza ACK")
+    return senza_ack
 
 
 def scrivi(macros=(), remaps=None, lighting=None, profile_keys=None,
            indicators=None, verbose=False):
-    """Scorciatoia: costruisce e invia in un colpo solo."""
-    invia(costruisci(macros, remaps, lighting, profile_keys, indicators),
-          verbose)
+    """Scorciatoia: costruisce e invia in un colpo solo.
+
+    Restituisce quanti report non hanno ricevuto la loro conferma: zero e
+    l'unico valore che dice davvero che la scrittura e passata tutta.
+    """
+    return invia(costruisci(macros, remaps, lighting, profile_keys, indicators),
+                 verbose)
