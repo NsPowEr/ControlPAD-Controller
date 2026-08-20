@@ -12,6 +12,8 @@ final class PresetStore {
     private(set) var loadError: String?
     private let fileURL: URL
     private let draftURL: URL
+    private let banksURL: URL
+    private let activeBankURL: URL
 
     init() {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -19,23 +21,53 @@ final class PresetStore {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         fileURL = dir.appendingPathComponent("presets.json")
         draftURL = dir.appendingPathComponent("draft.json")
+        banksURL = dir.appendingPathComponent("hardware_banks.json")
+        activeBankURL = dir.appendingPathComponent("active_bank.json")
         load()
+    }
+
+    // MARK: - 24 Banchi Hardware del Dispositivo (0..23 / Profilo 1..24)
+
+    func loadHardwareBanks() -> [Preset] {
+        if let data = try? Data(contentsOf: banksURL),
+           let list = try? JSONDecoder().decode([Preset].self, from: data),
+           list.count == 24 {
+            return list
+        }
+        return (0..<24).map { i in
+            var p = Preset(name: "Profilo \(i + 1)")
+            p.remaps = [:]
+            p.macros = []
+            p.profileSelectors = [:]
+            return p
+        }
+    }
+
+    /// Quale banco stava modificando l'utente quando l'app si è chiusa.
+    ///
+    /// Va ricordato perché la bozza salvata appartiene a *quel* banco: senza,
+    /// alla riapertura l'app riparte da `activeBankIndex = 0` e la prima
+    /// sincronizzazione col dispositivo archivierebbe la bozza sotto il banco
+    /// sbagliato.
+    func loadActiveBank() -> Int {
+        guard let data = try? Data(contentsOf: activeBankURL),
+              let index = try? JSONDecoder().decode(Int.self, from: data),
+              index >= 0, index < 24 else { return 0 }
+        return index
+    }
+
+    func saveActiveBank(_ index: Int) {
+        guard let data = try? JSONEncoder().encode(index) else { return }
+        try? data.write(to: activeBankURL, options: .atomic)
+    }
+
+    func saveHardwareBanks(_ banks: [Preset]) {
+        guard let data = try? JSONEncoder().encode(banks) else { return }
+        try? data.write(to: banksURL, options: .atomic)
     }
 
     // MARK: - La configurazione in modifica
 
-    /// Il lavoro in corso, salvato a parte dai profili.
-    ///
-    /// Senza questo, chiudere l'app buttava via tutto quello che non era stato
-    /// prima salvato a mano come profilo: macro appena registrate, tasti
-    /// rimappati, colori scelti. Nel pad restavano — macro e keymap stanno in
-    /// flash — ma l'app riapriva vuota e non aveva più modo di mostrarli, il
-    /// che è peggio che perderli: la configurazione visibile e quella reale
-    /// dicevano due cose diverse.
-    ///
-    /// Sta in `draft.json` e non dentro `presets.json` perché non è un profilo:
-    /// non ha un nome scelto, non compare nell'elenco, e va riscritto a ogni
-    /// modifica invece che a ogni comando esplicito.
     func loadDraft() -> Preset? {
         guard let data = try? Data(contentsOf: draftURL) else { return nil }
         return try? JSONDecoder().decode(Preset.self, from: data)

@@ -330,7 +330,8 @@ valore predefinito è l'identità, che equivale a nessuna assegnazione. È la
 stessa numerazione per colonne usata dai LED, non quella per righe della
 tabella keymap.
 
-Restano da identificare i codici di *profilo avanti* e *profilo indietro*.
+Restano da identificare i codici di *profilo avanti* e *profilo
+indietro*: vedi "Profilo + e profilo −: codici ancora ignoti".
 
 ### LED indicatori di profilo
 
@@ -432,6 +433,7 @@ tasto su tutta la griglia, tutte e quattordici le modalità di illuminazione, i
 quattro LED indicatori (animazioni comprese), la rimappatura semplice, e
 **macro di lunghezza arbitraria** — 49 eventi su 4 report, spezzati da
 `macro_packets()` col byte di continuazione.
+Include inoltre la sanitizzazione dei nomi macro (UTF-8 con troncamento a 12 byte) e la normalizzazione della velocità su scala 1-10 per tutti e 14 gli effetti.
 
 Tre vincoli scoperti sperimentalmente, nessuno deducibile dai byte:
 
@@ -466,9 +468,157 @@ Rileggere le catture **non richiede più Windows**: `analisi/pcapng.py` legge i
 perché macOS non ha uno sniffer USB equivalente — ma le catture esistenti
 contengono ancora dati non sfruttati.
 
+### Cambio di banco (`selezione_singola_di_un_profilo_alla_volta_da_1_a_24_per_tornare.pcapng`)
+
+* Commutazione da software: `51 00 00 00 <banco>`, `<banco>` da `0x00`
+  (profilo 1) a `0x17` (profilo 24).
+* Interrogazione: `52 00 00 00`, a cui il pad risponde `52 00 00 00 <banco>`
+  col banco attivo nel byte 4.
+
+### Quello che il pad dice da solo
+
+Il device manda report non richiesti sull'interfaccia vendor, e sono l'unico
+modo che l'app ha di sapere cosa succede quando il pad viene toccato a mano.
+Tutti e tre verificati in `cattura funzioni interne - e +.pcapng`, filtrando
+il solo indirizzo USB del pad:
+
+```
+52 00 00 00 <banco>            il banco di profilo attivo è cambiato
+52 28 00 00 <slot>             la modalità di illuminazione è cambiata
+43 01 00 00 <indice> c0 | 40   un tasto è stato premuto (c0) o rilasciato (40)
+```
+
+L'`<indice>` del terzo è l'**indice per colonne** — quello di
+`layout.indice_colonne`, lo stesso che numera i LED e la tabella `51 94` — non
+il codice HID. Verificato su sei pressioni della cattura: il tasto `x` (HID
+`0x1b`, riga 4 colonna 3) si annuncia come `0x0d`, cioè `2*5+3`; `Caps`
+(`0x39`, riga 3 colonna 1) come `0x02`; `c` (`0x06`, riga 4 colonna 4) come
+`0x12`. Si risale al tasto con `layout.tasto_da_indice_colonne`.
+
+Il terzo è di gran lunga il più frequente — arriva a ogni pressione, anche dei
+tasti che battono solo il loro carattere — ed è quello che riempie il buffer
+del sistema se non lo si legge. È il motivo per cui il thread di ascolto del
+bridge non può permettersi una pausa dopo ogni lettura: vedi
+`bridge._poll_connection`.
+
+### Rilettura della keymap
+
+`52 20 <tasto> 00` → `52 20 <tasto> 00 <azione lo> <azione hi>`.
+
+È una lettura dal vivo, fuori da qualunque sessione: il software ufficiale la
+usa per ricaricare la configurazione, e nelle catture precede ogni scrittura,
+ventotto voci per volta. Serve anche a distinguere un'azione che il firmware
+ha accolto da una che ha scartato — è su questo che si regge il setaccio di
+`ControlPadEngine/sonda_funzioni.py`.
+
+### Profilo + e profilo −: codici ancora ignoti
+
+Non esistono. Non nel senso che il device non li abbia, ma nel senso che
+**nessuna delle diciannove catture del progetto li contiene**. Filtrando tutti
+i `51 20` di tutti i file sulle azioni `≥ 0x0100`, l'insieme completo è:
+
+| Cattura | Azioni `≥ 0x0100` viste |
+|---|---|
+| `11 funzioni.pcapng` | `0110` `0181` `0182` `0190` `0191` `0192` `0193` |
+| `cattura funzioni interne - e +.pcapng` | `0181` `0182` `0190` `0191` `0192` `0193` |
+| tutte le altre | solo i valori di fabbrica `0181` `0192` `0193` |
+
+`cattura funzioni interne - e +.pcapng` è stata registrata apposta per le
+funzioni interne, e mostra sette assegnazioni successive — `x`→`0182`,
+`c`→`0181`, `Caps`→`0190`, `a`→`0191` — seguite dalle pressioni di prova. In
+quelle pressioni il pad risponde `52 28 00 00 03` al tasto di effetto, quindi
+la cattura *conferma* effetto ± e velocità ±. Di profilo ± non c'è traccia:
+quelle voci non sono state assegnate.
+
+Quindi `0x0111` e `0x0112` sarebbero un'ipotesi per contiguità con `0x0110`,
+non un dato. Per risolverla senza tornare a Windows c'è
+`ControlPadEngine/sonda_funzioni.py`, che scrive i candidati sul pad vero e li
+rilegge, e poi guarda se premendo il tasto arriva un `52 00 00 00 <banco>`
+diverso da prima. Finché quella prova non è stata fatta, profilo ± resta fuori
+da `session.FUNZIONI` e da `SpecialFunctions.swift`.
+
+### Cosa è per banco e cosa no
+
+Il dispositivo ha ventiquattro banchi di profilo, ma **non tutto è bancato**, e
+la differenza non si vede dai byte. Misurata sul device:
+
+| Cosa | Comando | Per banco? |
+|---|---|---|
+| Keymap / rimappature | `51 20` · `52 20` | **sì** |
+| Modalità di illuminazione | `51 28` · `52 28` | **sì** |
+| I 4 LED indicatori | `55 50 <addr> 0c` · `55 40 <addr> 0c` | **sì**, uno slot per banco |
+
+Per la keymap: scritta una rimappatura col pad sul banco 5, `52 20 35 00` la
+rilegge `003e` solo dal banco 5; dai banchi 2 e 7 torna `0035`, il valore di
+fabbrica. Per la modalità: commutando banco, `52 28 00 00` restituisce quella
+del banco nuovo (banco 2 → `04`, banco 5 → `00`).
+
+Anche i LED indicatori sono per banco, ma con un indirizzo diverso per
+ciascuno: vedi "I 4 LED indicatori sono per banco".
+
+Ne discendono due obblighi per chi scrive la configurazione:
+
+* **La sessione va nel banco attivo**, e non porta con sé il banco in cui
+  dovrebbe finire: chi vuole scrivere il profilo *N* deve prima commutare il
+  pad su *N* con `51 00`. Lo fa `bridge.handle` per il comando `write_session`,
+  che accetta un campo `profile`. Senza, modificare un profilo qualunque
+  scriveva sempre nello stesso banco — uno funzionava, gli altri ventitré no.
+* **I quattro LED vanno scritti nello slot del banco giusto**, che è quello
+  che il pad ha attivo in quel momento: lo slot sbagliato non dà errore — il
+  device conferma e non si accende niente.
+
+### Commutare banco richiede i commit
+
+`51 00 00 00 <banco>` da solo viene **ACKato e non eseguito**: chiesto il banco
+9 mentre il pad era sull'8, `52 00 00 00` continuava a rispondere 8. Va
+avvolto fra due `41 80`, come fa il software ufficiale in
+`selezione_singola_di_un_profilo_alla_volta_da_1_a_24_per_tornare.pcapng`.
+Quella cattura manda anche `42 10 00 00 01 00 00 01` due volte dopo il
+comando; provato, non serve.
+
+### Il registro 51 28 fa doppio servizio
+
+Ci si scrive la modalità da attivare (`51 28 00 00 <slot>`, slot 0–13), ma
+anche il comando di applicazione, che è `51 28 00 00 ff` — 120 volte nelle
+catture. Rileggendo con `52 28 00 00` subito dopo un'applicazione torna quindi
+**255**, che non è una modalità: significa "ho appena applicato". Chi usa
+`52 28` per sapere l'effetto attivo deve scartare quel valore.
+
+### I 4 LED indicatori sono per banco — uno slot ciascuno
+
+Non un registro solo, come si era creduto per mesi: **ventiquattro slot da
+dodici byte**, quattro terzine RGB per ciascun banco di profilo, a passo 12 a
+partire da `0x00f0`.
+
+```
+indirizzo(banco) = 0x00f0 + banco * 12
+```
+
+| banco | indirizzo | | banco | indirizzo |
+|---|---|---|---|---|
+| 0 | `0x00f0` | | 12 | `0x0180` |
+| **1** | **`0x00fc`** | | 23 | `0x0204` |
+
+Il software ufficiale li rilegge **tutti e ventiquattro** ogni volta che il
+banco attivo cambia — la spazzata è in `profilo + e -.pcapng`, `55 40 <addr>
+0c` per `addr` da `0x00f0` a `0x0204`.
+
+`0x00fc`, l'unico indirizzo usato in questo progetto fino ad ora, è il
+**secondo** della serie: lo slot del **banco 1**, cioè del profilo che l'app
+chiama P2. Ogni scrittura degli indicatori finiva lì qualunque banco fosse
+attivo, quindi i quattro LED rispondevano su P2 e da nessun'altra parte.
+
+Il guasto era invisibile a ogni verifica fatta finora, e vale la pena dire
+perché: la rilettura `55 40 fc 00 0c` usava lo **stesso indirizzo fisso** della
+scrittura, quindi tornava sempre coerente. Scrivendo rosso col pad sul banco 3
+e rileggendo dal banco 7 il rosso c'era davvero — ma era lo slot del banco 1
+in entrambi i casi, e sembrava la prova che i LED fossero globali. Una lettura
+concorde non dimostra niente se legge il posto sbagliato insieme a chi scrive.
+
+Il commit `41 80` basta a fissarli; `51 28 00 00 ff` no, e per giunta lascia
+255 nel registro della modalità — vedi la sezione su `51 28`.
+
 ### Cosa non è ancora stato eseguito
 
-Riassegnazione delle rotelle · cambio profilo da software (`51 00 00 00 <N>`)
-· codici di profilo avanti/indietro · valori di velocità sensati per i sei
-effetti reattivi · nome di macro più lungo di un byte (`51 19`) · macro oltre
-49 eventi · un tasto che porti insieme macro e rimappatura.
+Codici di profilo avanti/indietro (vedi sopra) · riassegnazione delle rotelle ·
+macro oltre 49 eventi · un tasto che porti insieme macro e rimappatura.

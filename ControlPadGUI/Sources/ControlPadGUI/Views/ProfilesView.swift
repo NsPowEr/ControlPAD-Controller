@@ -9,12 +9,50 @@ struct ProfilesView: View {
 
     var body: some View {
         VStack(spacing: Metrics.gap) {
+            GlassCard(titleKey: "profiles.hardwareTitle", subtitleKey: "profiles.hardwareSubtitle") {
+                VStack(alignment: .leading, spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 8)], spacing: 8) {
+                        ForEach(0..<24, id: \.self) { index in
+                            let isSelected = app.activeBankIndex == index
+                            let bankPreset = app.hardwareBanks.indices.contains(index) ? app.hardwareBanks[index] : app.draft
+                            
+                            Button {
+                                Task { await app.selectHardwareBank(index) }
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Profilo \(index + 1)")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundStyle(isSelected ? .white : .primary)
+                                        Text("\(bankPreset.macros.count) macro · \(bankPreset.remaps.count) remap")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(isSelected ? .white.opacity(0.8) : .secondary)
+                                    }
+                                    Spacer(minLength: 0)
+                                    if isSelected {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.white)
+                                    }
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
+                                .background(
+                                    isSelected
+                                        ? Color.accentColor
+                                        : Color.primary.opacity(0.06),
+                                    in: RoundedRectangle(cornerRadius: 8)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: 620)
+
             GlassCard(titleKey: "profiles.list", subtitleKey: "profiles.hint") {
                 VStack(spacing: Metrics.stack) {
-                    // Un file dei profili illeggibile dava una lista vuota
-                    // identica a quella del primo avvio, e il salvataggio
-                    // successivo ci scriveva sopra. Ora si vede, e finché si
-                    // vede non si salva niente.
                     if let loadError = app.presetStore.loadError {
                         Label(String(format: L("profiles.loadFailed"), loadError),
                               systemImage: "exclamationmark.triangle.fill")
@@ -29,7 +67,7 @@ struct ProfilesView: View {
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, minHeight: 140)
+                            .frame(maxWidth: .infinity, minHeight: 80)
                     } else {
                         VStack(spacing: 6) {
                             ForEach(app.presetStore.presets) { preset in

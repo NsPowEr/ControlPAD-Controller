@@ -4,6 +4,7 @@ struct KeyMappingView: View {
     @Environment(AppModel.self) private var app
     @State private var target: MapTarget = .pad(KeyLayout.allPositions.first!)
     @State private var source: Source = .keyboard
+    @State private var scopeError: String?
 
     /// Cosa si sta rimappando: uno dei 24 tasti oppure uno dei quattro versi
     /// delle due rotelle. Nella keymap sono la stessa cosa — pseudo-tasti con
@@ -280,7 +281,37 @@ struct KeyMappingView: View {
                     }
                 }
                 .frame(minHeight: 300)
+
+                // Su quali profili vale quello che si è appena assegnato. La
+                // keymap del pad è per banco, quindi senza questo passaggio un
+                // tasto esiste solo sul profilo in cui lo si è messo.
+                if selectedKey != nil {
+                    Divider()
+                    Text(L("mapping.scope.title"))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                    ProfileScopePicker(
+                        currentBank: app.activeBankIndex,
+                        onApply: { banchi in Task { await propaga(a: banchi) } },
+                        progress: app.propagazione)
+                    if let scopeError {
+                        Label(scopeError, systemImage: "exclamationmark.triangle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.red)
+                    }
+                }
             }
+        }
+    }
+
+    private func propaga(a banchi: [Int]) async {
+        guard let key = selectedKey else { return }
+        scopeError = nil
+        do {
+            try await app.propagaAssegnazione(key: key, to: banchi)
+        } catch {
+            scopeError = error.localizedDescription
         }
     }
 

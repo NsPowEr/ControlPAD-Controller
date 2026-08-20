@@ -115,3 +115,27 @@ def macro_packets(body):
     pieces = [body[i:i + room] for i in range(0, len(body), room)]
     return [bytes([0x53, 0 if i == 0 else 1, len(piece) // 4, 0x00]) + piece
             for i, piece in enumerate(pieces)]
+
+
+def sanitize_name(nome, max_bytes=12):
+    """Codifica il nome della macro in esattamente max_bytes byte.
+
+    Tronca al confine di carattere piu vicino che stia in max_bytes e
+    riempie con byte nulli. Il comando 51 19 porta il nome subito dopo
+    l'intestazione di 4 byte: i rimanenti 60 byte del report sono a
+    disposizione, ma nelle catture il software ufficiale ne usa al piu
+    dodici, e la GUI li limita cosi.
+    """
+    codificato = nome.encode('utf-8', errors='replace')
+    # Troncamento al confine di carattere: tagliare un codepoint multibyte
+    # a meta produce un byte 0x80..0xBF iniziale che e un continuation byte.
+    troncato = codificato[:max_bytes]
+    while troncato and troncato[-1] & 0xC0 == 0x80:
+        troncato = troncato[:-1]
+    # Se il troncamento ha lasciato un lead byte senza i suoi continuation:
+    if troncato:
+        try:
+            troncato.decode('utf-8')
+        except UnicodeDecodeError:
+            troncato = troncato[:-1]
+    return troncato.ljust(max_bytes, b'\x00')

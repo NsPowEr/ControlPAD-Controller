@@ -56,7 +56,9 @@
 "function.speedUp" = "Speed +";
 "function.brightnessUp" = "Brightness +";
 "function.brightnessDown" = "Brightness −";
-"function.selectProfile" = "Select Profile";
+"function.selectProfile" = "Select Specific Profile";
+"function.nextProfile" = "Next Profile (+)";
+"function.previousProfile" = "Previous Profile (−)";
 
 "session.write" = "Write to Device";
 "session.written" = "Written to device";
@@ -83,7 +85,9 @@
 "session.blockedByMacro" = "\"%@\" isn't valid — fix it before writing";
 "session.macroRemapConflict" = "%d keys have both a macro and a remap: behavior not guaranteed";
 
-"profiles.list" = "Profiles";
+"profiles.hardwareTitle" = "Hardware Device Banks (1–24)";
+"profiles.hardwareSubtitle" = "Select one of the 24 profile banks stored on the pad memory to view and configure it.";
+"profiles.list" = "Saved Mac Presets";
 "profiles.empty" = "No saved profiles yet. Set up Lighting/Key Mapping/Macros, then save the current state as a profile.";
 "profiles.loadFailed" = "The profiles file exists but could not be read (%@). It is left untouched: your profiles are still in ~/Library/Application Support/ControlPad/presets.json.";
 "profiles.saveCurrent" = "Save current state as new profile";
@@ -174,3 +178,25 @@
 "mapping.disable" = "Disable key";
 "mapping.disabled" = "Disabled — types nothing";
 "mapping.disabled.short" = "off";
+
+"bank.hardwareLabel" = "HW Bank:";
+"settings.diagnostics" = "Diagnostics";
+"settings.noLogYet" = "No engine log available yet.";
+"settings.refreshLog" = "Refresh";
+"settings.openLog" = "Open in Console";
+"settings.exportLog" = "Export log";
+"error.writeNotVerified" = "The write could not be read back from the device: the configuration may not have been saved.";
+
+"error.writeNotVerified.onProfile" = "(the pad is on profile %d)";
+
+"mapping.scope.title" = "Which profiles";
+"mapping.scope.thisProfile" = "This one only";
+"mapping.scope.someProfiles" = "Some profiles";
+"mapping.scope.allProfiles" = "All profiles";
+"mapping.scope.apply" = "Copy to %d profiles";
+"mapping.scope.writing" = "Writing %d of %d…";
+"mapping.scope.selectAll" = "Select all";
+"mapping.scope.selectNone" = "Clear";
+"mapping.scope.currentProfile" = "Current profile: the assignment is already here";
+"mapping.scope.thisProfileHint" = "The key applies to this profile only. The pad keeps one keymap per profile.";
+"mapping.scope.otherHint" = "Each chosen profile is rewritten on the device: a few seconds each.";

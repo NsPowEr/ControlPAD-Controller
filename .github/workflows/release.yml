@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-release:
+    name: Build and Create Release
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Tag Version
+        id: tag_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Engine Tests
+        run: |
+          python3 -m unittest discover -s ControlPadEngine/tests -p "test_*.py"
+
+      - name: Build GUI (Release)
+        working-directory: ControlPadGUI
+        run: |
+          swift build -c release
+          swift test
+
+      - name: Extract Changelog
+        id: changelog
+        run: |
+          VERSION="${{ steps.tag_version.outputs.VERSION }}"
+          if [ -f CHANGES.md ]; then
+            NOTES=$(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGES.md | sed '$d' | tail -n +2)
+            if [ -z "$NOTES" ]; then
+              NOTES="Release v${VERSION}"
+            fi
+          else
+            NOTES="Release v${VERSION}"
+          fi
+          echo "$NOTES" > release_notes.txt
+
+      - name: Package Release Artifacts
+        run: |
+          VERSION="${{ steps.tag_version.outputs.VERSION }}"
+          mkdir -p dist/ControlPAD
+
+          # Copy compiled GUI binary
+          if [ -f ControlPadGUI/.build/release/ControlPadGUI ]; then
+            cp ControlPadGUI/.build/release/ControlPadGUI dist/ControlPAD/
+          fi
+
+          # Copy Engine source and requirements
+          cp -r ControlPadEngine dist/ControlPAD/
+          cp README.md dist/ControlPAD/
+
+          # Create zip bundle
+          cd dist
+          zip -r "../ControlPAD-v${VERSION}-macOS.zip" ControlPAD/
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ControlPAD Controller v${{ steps.tag_version.outputs.VERSION }}
+          body_path: release_notes.txt
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ControlPAD-v*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

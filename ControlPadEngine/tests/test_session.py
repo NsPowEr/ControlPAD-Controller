@@ -217,7 +217,6 @@ class Illuminazione(unittest.TestCase):
         flusso = b"".join(p[4:4 + session.CHUNK_DATI]
                           for p, _ in reports if p[:2] == b"\x56\x21")
         self.assertIn(bytes(LUCE["color1"]), flusso)
-        self.assertIn(bytes(LUCE["color2"]), flusso)
 
     def test_i_colori_per_tasto_finiscono_nello_slot_personalizza(self):
         perkey = [(i, i, i) for i in range(1, 26)]

@@ -14,9 +14,9 @@ import time
 import hid
 
 import effects
-from controlpad import attendi_ack
-from layout import tasto_da_indice_colonne
-from macro import macro_packets, PRESS
+from controlpad import attendi_ack, indicator_address
+from layout import indice_colonne, posizione, tasto_da_indice_colonne
+from macro import macro_packets, sanitize_name, PRESS
 from skeleton import SESSIONE
 
 VID, PID, REPORT = 0x2516, 0x007B, 64
@@ -56,7 +56,7 @@ def _macro_packet(p):
 # tutte le catture allo stesso modo.
 ROTELLE_DI_FABBRICA = {
     0xC6: 0x0192,   # rotella sinistra, verso -: LED piu luminoso
-    0xC7: 0x0193,   # rotella sinistra, verso +: LED piu scuro
+    0xC7: 0x0193,   # rotella sinistra, verso +: LED meno luminoso
     0xF5: 0x00F5,   # rotella destra, verso -: volume giu
     0xF6: 0x00F6,   # rotella destra, verso +: volume su
 }
@@ -90,7 +90,36 @@ def _azione_predefinita(codice):
     return codice
 
 
-def _con_rimappatura(payload, remaps):
+# Le due funzioni "scorri i profili" non sono codici azione di `51 20`: non
+# esistono in quel campo, e cercarli nelle catture non da niente. Un tasto
+# diventa un tasto profilo **togliendolo dalla tabella `51 94`** — il suo slot
+# passa a `ff ff ff ff` — e nella keymap resta `00ff`. Verificato riproducendo
+# `profilo + e -.pcapng`: rimessi quegli slot a ff, i tasti cominciano a
+# scorrere i banchi con avvolgimento.
+#
+# Questi due valori sono quindi **codici interni dell'app**, un modo di dire
+# "questo tasto scorre i profili" lungo la stessa strada delle altre funzioni,
+# non byte che il dispositivo veda mai.
+PROFILO_AVANTI = 0x0111
+PROFILO_INDIETRO = 0x0112
+PASSO_PROFILO = {PROFILO_AVANTI: "avanti", PROFILO_INDIETRO: "indietro"}
+
+
+def _senza_tasti(payload, indici):
+    """`51 94` con gli slot dei tasti indicati azzerati a `ff ff ff ff`.
+
+    E l'unica differenza strutturale fra la sessione di riferimento e quella
+    della cattura con i tasti profilo: `51 80` e identico e la keymap porta
+    `00ff` su quei tasti.
+    """
+    corpo = bytearray(payload[4:])
+    for o in range(0, len(corpo) - 3, 4):
+        if int.from_bytes(corpo[o + 2:o + 4], "little") in indici:
+            corpo[o:o + 4] = b"\xff\xff\xff\xff"
+    return payload[:4] + bytes(corpo)
+
+
+def _con_rimappatura(payload, remaps, letterali=()):
     """51 20 <tasto> 00 <azione a 16 bit>: sotto 0x0100 e un codice HID.
 
     Un tasto assente da `remaps` **non** conserva il valore della sessione
@@ -106,7 +135,10 @@ def _con_rimappatura(payload, remaps):
     """
     key = payload[2]
     azione = remaps.get(key, NESSUNA_RIMAPPATURA)
-    if azione == NESSUNA_RIMAPPATURA:
+    if azione == NESSUNA_RIMAPPATURA and key not in letterali:
+        # `letterali` sono i tasti che devono ricevere `00ff` davvero, senza
+        # che ci si sostituisca l'azione predefinita: i tasti profilo, che
+        # nella cattura hanno esattamente quel valore.
         azione = _azione_predefinita(key)
     return payload[:4] + bytes([azione & 0xFF, azione >> 8]) + payload[6:]
 
@@ -213,31 +245,33 @@ def _scrivi_perkey(flusso, inizio, fine, tasti):
 def _con_illuminazione(sessione, lighting):
     """Il flusso del blob con dentro i colori scelti dall'utente.
 
-    Va scritto, non saltato: quello che il pad conserva in flash e cio con cui
-    si riaccende e cio che ripesca quando ricarica la mappatura. Lasciandolo
-    intatto tornava la configurazione dell'ultima sessione del software
-    ufficiale, che e esattamente il difetto segnalato.
-
-    Si scrivono **tutti** gli slot, Personalizza compreso: quello non e un
-    effetto ma la tabella dei colori per singolo tasto, ed e proprio lo slot
-    che faceva ricomparire la configurazione a colori sparsi del software
-    ufficiale — escluderlo perche "non e un effetto" era il difetto. Cosi
-    qualunque modalita il pad stia mostrando, o l'utente scelga col tasto
-    "effetto successivo", i colori sono i suoi.
+    Si aggiornano gli slot specificati senza sovrascrivere l'intera tabella dei 14
+    effetti con un unico colore identico: così ciascuna modalità del carosello
+    conserva la propria identità quando si scorre col tasto "effetto successivo" (0xC0).
     """
     tabella, flusso = _blob_illuminazione(sessione)
     if not tabella:
         return None
 
+    active_mode = lighting.get("mode")
     color1 = lighting.get("color1")
     color2 = lighting.get("color2") or color1
     velocita = lighting.get("speed")
+    slots_custom = lighting.get("slots", {})
 
     for (slot, tipo, _), (inizio, fine) in zip(tabella, _confini(tabella)):
-        if slot < len(effects.SLOT_ORDER) and effects.SLOT_ORDER[slot] == "custom":
-            _scrivi_perkey(flusso, inizio, fine, lighting.get("perkey"))
-        else:
-            _scrivi_record(flusso, inizio, fine, tipo, color1, color2, velocita)
+        if slot < len(effects.SLOT_ORDER):
+            mode_key = effects.SLOT_ORDER[slot]
+            if mode_key == "custom":
+                _scrivi_perkey(flusso, inizio, fine, lighting.get("perkey"))
+            elif mode_key == active_mode:
+                _scrivi_record(flusso, inizio, fine, tipo, color1, color2, velocita)
+            elif mode_key in slots_custom:
+                s_cfg = slots_custom[mode_key]
+                _scrivi_record(flusso, inizio, fine, tipo,
+                               s_cfg.get("color1"),
+                               s_cfg.get("color2") or s_cfg.get("color1"),
+                               s_cfg.get("speed"))
 
     return bytes(flusso)
 
@@ -286,41 +320,66 @@ def _slot_modalita(lighting):
     return effects.SLOT_ORDER.index(modalita), int(velocita)
 
 
-def _tabella_profili(profile_keys):
+def _tabella_profili(profile_keys, indici_passo=None):
     """51 90: quale profilo attiva ciascun tasto, indicizzato per colonne.
 
     Il valore predefinito e l'identita, che equivale a nessuna assegnazione.
+
+    Ai tasti che *scorrono* i profili — quelli tolti da `51 94` — serve anche
+    una voce qui, ed e l'unico posto in cui i due versi si distinguono: chi
+    **torna indietro** porta `0` al suo indice, chi **avanza** conserva
+    l'identita.
+
+    Il verso e stato ricavato dall'uso, non dalla cattura, e la differenza
+    merita di essere scritta. Nella cattura il tasto con `0` incrementava,
+    quindi la prima versione di questa funzione metteva `0` sull'"avanti"; ma
+    assegnando dall'app `z` ad avanti e `Ctrl` a indietro, sul dispositivo si
+    comportavano al contrario. Fra le due, l'osservazione diretta di
+    un'assegnazione fatta *da noi* vale piu della lettura di una cattura in
+    cui quel byte poteva essere li per un altro motivo.
+
+    Resta un'ipotesi alternativa non ancora esclusa: che a decidere il verso
+    non sia questo byte ma la **posizione** dei due tasti — l'indice piu basso
+    avanti, il piu alto indietro. Le due regole danno lo stesso risultato su
+    tutti i casi provati finora, perche in ognuno il tasto "avanti" aveva
+    anche l'indice minore. Le separa un'assegnazione in cui l'"avanti" stia
+    *dopo* l'"indietro": se in quel caso i versi risultassero scambiati, a
+    comandare e la posizione e questa tabella non c'entra.
     """
     tabella = bytearray(range(24))
-    for indice_led, profilo in profile_keys.items():
+    for indice_led, profilo in (profile_keys or {}).items():
         tabella[indice_led] = profilo
+    for indice, verso in (indici_passo or {}).items():
+        tabella[indice] = 0 if verso == "indietro" else indice
     return bytes.fromhex("51900000") + tabella
 
 
-def _gruppo_indicatori(colori):
+def _gruppo_indicatori(colori, banco=1):
     """I quattro LED sopra il pad, nella forma e nel punto della cattura.
 
-    Da solo il comando non si vede: `captures/12_colori profilo.pcapng` mostra
-    che il software ufficiale lo manda **dentro** la scrittura di sessione,
-    subito dopo la coppia `52 94`, e mai isolato. I colori sono per profilo,
-    quindi seguono la sessione del profilo a cui appartengono.
-
-        41 04
-        55 50 fc 00 0c <R G B> × 4
-        41 80
+    `banco` sceglie *quale* slot: i quattro LED sono memorizzati uno slot per
+    banco, e scrivere quello sbagliato non da errore — il device conferma e
+    non si accende niente. L'indirizzo fisso `0x00fc` usato finora e lo slot
+    del banco 1, cioe del profilo che l'app chiama P2: era il motivo per cui i
+    LED rispondevano li e da nessun'altra parte.
     """
     dati = bytearray()
     for i in range(4):
         dati += bytes(colori[i] if i < len(colori) else (0, 0, 0))
+    scrittura = (bytes([0x55, 0x50])
+                 + indicator_address(banco).to_bytes(2, "little")
+                 + bytes([0x0C]) + bytes(dati))
     return [
         (bytes.fromhex("4180"), STEP),
         (bytes.fromhex("4104"), STEP),
-        (bytes.fromhex("5550fc000c") + bytes(dati), STEP),
+        (scrittura, STEP),
+        (bytes.fromhex("4180"), STEP),
+        (bytes.fromhex("51280000ff"), STEP),
     ]
 
 
 def costruisci(macros=(), remaps=None, lighting=None, profile_keys=None,
-               indicators=None):
+               indicators=None, banco=1, profile_step=None):
     """Prepara la sessione da inviare.
 
     macros       sequenza di (slot, codice_tasto, eventi, nome)
@@ -331,8 +390,28 @@ def costruisci(macros=(), remaps=None, lighting=None, profile_keys=None,
                  anche quale slot il pad deve mostrare all'accensione
     profile_keys {indice_tasto_per_colonne: numero_profilo}
     indicators   [(r, g, b)] × 4 per i LED sopra il pad
+    banco        in quale banco finiscono gli indicatori (0..23): hanno uno
+                 slot per banco, e quello sbagliato non da errore
+    profile_step {codice_tasto: "avanti" | "indietro"}, i tasti che scorrono i
+                 profili; possono anche arrivare dentro `remaps` come
+                 PROFILO_AVANTI / PROFILO_INDIETRO
     """
     remaps = dict(remaps or {})
+
+    # I tasti profilo possono arrivare da `remaps`, che e la strada che usa
+    # l'app: gli si assegna una funzione come a qualunque altro tasto. Qui si
+    # tolgono da li, perche il loro codice non va scritto nella keymap — non e
+    # un codice che il dispositivo conosca.
+    passo = dict(profile_step or {})
+    for tasto, azione in list(remaps.items()):
+        if azione in PASSO_PROFILO:
+            passo[tasto] = PASSO_PROFILO[azione]
+            del remaps[tasto]
+
+    indici_passo = {}
+    for tasto, verso in passo.items():
+        riga, colonna = posizione(tasto)
+        indici_passo[indice_colonne(riga, colonna)] = verso
 
     # Un tasto con una macro non deve battere anche il suo carattere: nelle
     # catture l'app ufficiale gli scrive azione 0x0000 nella keymap, ed e
@@ -382,24 +461,27 @@ def costruisci(macros=(), remaps=None, lighting=None, profile_keys=None,
             macro_emesse = True
             for slot_macro, tasto, eventi, nome in macros:
                 fuori.append((bytes([0x51, 0x18, slot_macro, 0x00, tasto, PRESS]), gap))
-                fuori.append((bytes([0x51, 0x19, slot_macro, 0x00]) + nome.encode(), STEP))
+                fuori.append((bytes([0x51, 0x19, slot_macro, 0x00]) + sanitize_name(nome), STEP))
                 for p in macro_packets(eventi):
                     fuori.append((p, FLASH_SETTLE))
             continue
 
-        if profile_keys and payload[:2] == b"\x51\x94" and payload[2] == 0:
+        if (profile_keys or indici_passo) and payload[:2] == b"\x51\x94" \
+                and payload[2] == 0:
             fuori.append((bytes.fromhex("52900000"), STEP))
-            fuori.append((_tabella_profili(profile_keys), STEP))
+            fuori.append((_tabella_profili(profile_keys, indici_passo), STEP))
             profile_keys = None               # una volta sola
 
+        if payload[:2] == b"\x51\x94" and indici_passo:
+            payload = _senza_tasti(payload, set(indici_passo))
+
         if payload[:2] == b"\x51\x20":
-            payload = _con_rimappatura(payload, remaps)
+            payload = _con_rimappatura(payload, remaps, letterali=set(passo))
 
         fuori.append((payload, gap))
 
-        if indicators and payload[:2] == b"\x55\x50":
-            fuori.extend(_gruppo_indicatori(indicators))
-            indicators = None                 # una volta sola
+    if indicators:
+        fuori.extend(_gruppo_indicatori(indicators, banco))
 
     return fuori
 
@@ -443,11 +525,12 @@ def invia(reports, verbose=False, timeout_ms=100):
 
 
 def scrivi(macros=(), remaps=None, lighting=None, profile_keys=None,
-           indicators=None, verbose=False):
+           indicators=None, verbose=False, banco=1, profile_step=None):
     """Scorciatoia: costruisce e invia in un colpo solo.
 
     Restituisce quanti report non hanno ricevuto la loro conferma: zero e
     l'unico valore che dice davvero che la scrittura e passata tutta.
     """
-    return invia(costruisci(macros, remaps, lighting, profile_keys, indicators),
+    return invia(costruisci(macros, remaps, lighting, profile_keys, indicators,
+                            banco, profile_step),
                  verbose)

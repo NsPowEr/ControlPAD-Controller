@@ -1,5 +1,18 @@
 import Foundation
 
+/// Com'è andata una scrittura di sessione, come la riferisce il motore dopo
+/// averla riletta dal dispositivo.
+struct WriteOutcome: Sendable {
+    /// Quanti report non hanno ricevuto la loro conferma. Zero è l'unico
+    /// valore che dica che è passata tutta.
+    let missingAcks: Int
+    /// Se la rilettura combacia con quello che si era chiesto. `nil` quando il
+    /// motore non è riuscito a rileggere (device occupato, per esempio).
+    let verified: Bool?
+    /// Il banco su cui il pad si è trovato dopo la scrittura, riletto da lui.
+    let profileWritten: Int?
+}
+
 /// Costruttori tipizzati sopra PythonBridge.send: ogni funzione qui
 /// corrisponde a un comando di bridge.py. Nessuna logica di protocollo
 /// vive qui — solo la busta JSON, esattamente come in bridge.py.
@@ -40,6 +53,20 @@ extension PythonBridge {
             payload["speed"] = .int(Int(speed))
         }
         try await send("set_mode", payload)
+    }
+
+    /// Dove si trova il dispositivo *adesso*: banco di profilo attivo e slot
+    /// di illuminazione. Va chiesto all'avvio, prima di applicare qualunque
+    /// cosa: l'app parte dal profilo 1 e non ha nessun altro modo di sapere
+    /// che il pad è su un altro banco.
+    func state() async throws -> (profile: Int?, mode: Int?) {
+        let reply = try await send("get_state", [:])
+        return (reply["profile"]?.intValue, reply["mode"]?.intValue)
+    }
+
+    /// Commuta il banco profilo attivo sul dispositivo (0..23).
+    func setActiveProfile(_ profile: Int) async throws {
+        try await send("set_active_profile", ["profile": .int(profile)])
     }
 
     private func rgba(_ c: RGBColor, _ a: UInt8) -> JSONValue {
@@ -132,8 +159,13 @@ extension PythonBridge {
     /// ACKa anche quello che non esegue, ma non ACKare affatto è un guasto, e
     /// tacerlo lo farebbe somigliare a un successo.
     @discardableResult
-    func writeSession(preset: Preset) async throws -> Int {
+    /// - Parameter profile: banco di destinazione (0..23). La sessione non
+    ///   porta con sé il banco in cui deve finire — si scrive in quello attivo
+    ///   sul dispositivo — quindi va detto, o la scrittura di *ogni* profilo
+    ///   finisce in quello su cui il pad si trova.
+    func writeSession(preset: Preset, profile: Int?) async throws -> WriteOutcome {
         var payload: [String: JSONValue] = [:]
+        if let profile { payload["profile"] = .int(profile) }
 
         if !preset.macros.isEmpty {
             payload["macros"] = .array(preset.macros.map { macro in
@@ -198,7 +230,7 @@ extension PythonBridge {
             }
         }
 
-        payload["lighting"] = .object([
+        var lightingPayload: [String: JSONValue] = [
             "color1": rgba(preset.lighting.color, preset.lighting.brightness),
             "color2": rgba(preset.lighting.secondColor, preset.lighting.brightness),
             "speed": .int(Int(preset.lighting.speed)),
@@ -209,7 +241,21 @@ extension PythonBridge {
             // ricopiava i valori della cattura e il pad si riaccendeva sul
             // proprio default — le luci tornavano viola.
             "mode": .string(preset.lighting.modeID),
-        ])
+        ]
+        
+        if !preset.lighting.slots.isEmpty {
+            var slotsObj: [String: JSONValue] = [:]
+            for (key, cfg) in preset.lighting.slots {
+                slotsObj[key] = .object([
+                    "color1": rgba(cfg.color, preset.lighting.brightness),
+                    "color2": rgba(cfg.secondColor, preset.lighting.brightness),
+                    "speed": .int(Int(cfg.speed))
+                ])
+            }
+            lightingPayload["slots"] = .object(slotsObj)
+        }
+        
+        payload["lighting"] = .object(lightingPayload)
 
         // Anche i quattro LED sopra il pad viaggiano qui dentro, nel punto in
         // cui li manda il software ufficiale (`captures/12_colori profilo`).
@@ -223,6 +269,16 @@ extension PythonBridge {
                 .map { .array([.int(Int($0.r)), .int(Int($0.g)), .int(Int($0.b))]) })
 
         let reply = try await send("write_session", payload)
-        return reply["missing_acks"]?.intValue ?? 0
+
+        // Il motore rilegge dal pad dove la sessione è finita e cosa contiene:
+        // il dispositivo ACKa anche quello che non esegue, quindi zero report
+        // mancanti non basta a dire che sia andata bene. L'esito torna al
+        // chiamante invece di diventare un errore qui, perché il testo va
+        // localizzato e le stringhe di quest'app si leggono solo dal main
+        // actor (vedi Localization.swift, che non usa NSLocalizedString).
+        return WriteOutcome(
+            missingAcks: reply["missing_acks"]?.intValue ?? 0,
+            verified: reply["verified"]?.boolValue,
+            profileWritten: reply["profile_written"]?.intValue)
     }
 }

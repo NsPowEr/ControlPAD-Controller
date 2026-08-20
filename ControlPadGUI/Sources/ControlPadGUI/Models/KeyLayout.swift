@@ -84,6 +84,65 @@ enum KeyLayout {
         return UInt16(code)
     }
 
+    /// Restituisce l'etichetta di fabbrica per la griglia UI (es. "A", "Tab", "Play", "Vol+").
+    static func displayLabel(forKey key: UInt8) -> String {
+        switch key {
+        case 0x04: return "A"
+        case 0x05: return "B"
+        case 0x06: return "C"
+        case 0x07: return "D"
+        case 0x08: return "E"
+        case 0x09: return "F"
+        case 0x0A: return "G"
+        case 0x0B: return "H"
+        case 0x0C: return "I"
+        case 0x0D: return "J"
+        case 0x0E: return "K"
+        case 0x0F: return "L"
+        case 0x10: return "M"
+        case 0x11: return "N"
+        case 0x12: return "O"
+        case 0x13: return "P"
+        case 0x14: return "Q"
+        case 0x15: return "R"
+        case 0x16: return "S"
+        case 0x17: return "T"
+        case 0x18: return "U"
+        case 0x19: return "V"
+        case 0x1A: return "W"
+        case 0x1B: return "X"
+        case 0x1C: return "Y"
+        case 0x1D: return "Z"
+        case 0x1E: return "1"
+        case 0x1F: return "2"
+        case 0x20: return "3"
+        case 0x21: return "4"
+        case 0x22: return "5"
+        case 0x23: return "6"
+        case 0x24: return "7"
+        case 0x25: return "8"
+        case 0x26: return "9"
+        case 0x27: return "0"
+        case 0x28: return "Invio"
+        case 0x29: return "Esc"
+        case 0x2A: return "Backspace"
+        case 0x2B: return "Tab"
+        case 0x2C: return "Spazio"
+        case 0x39: return "Bloc Maius"
+        case 0xE0: return "Ctrl"
+        case 0xE1: return "Shift"
+        case 0xE2: return "Alt"
+        case 0xE3: return "Cmd"
+        case 0xC0: return "Effetti ↺"
+        case 0xC6: return "Rotella Sx ↺"
+        case 0xC7: return "Rotella Sx ↻"
+        case 0xF5: return "Rotella Dx ↺"
+        case 0xF6: return "Rotella Dx ↻"
+        default:
+            return String(format: "0x%02X", key)
+        }
+    }
+
     /// L'azione di fabbrica di un verso di rotella, se quel codice è una rotella.
     static func factoryAction(forWheelKey code: UInt8) -> UInt16? {
         for wheel in wheels {

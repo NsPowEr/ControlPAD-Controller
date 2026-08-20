@@ -150,6 +150,31 @@ SLOT_ORDER = [
     "circularSpectrum", "reactiveTornado", "waterRipple", "off",
 ]
 
+# Scala della velocita: la GUI manda un valore da 1 a 10, il device vuole
+# un byte. Le catture mostrano valori fra 0x02 e 0x0c per i Tipo 1 e
+# fra 0x05 e 0x10 per i Tipo 2 (offset 36): la relazione non e lineare
+# ma una mappa discreta basta.
+_SPEED_T1 = [0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0C]
+_SPEED_T2 = [0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0C, 0x0D, 0x0F, 0x10]
+
+
+def normalize_speed(value, key=None):
+    """Converte un valore 1-10 nel byte di velocita per il device.
+
+    Se value e gia nel range dei byte grezzi (> 10) lo lascia passare
+    invariato, per non rompere chi parla gia in unita del device.
+    Se key indica una modalita con due colori (Tipo 2) usa la scala
+    reattiva, altrimenti quella mono-colore.
+    """
+    if value is None:
+        return None
+    value = int(value)
+    if value > 10:
+        return value          # gia un byte grezzo
+    scala = _SPEED_T2 if key and key in BY_KEY and BY_KEY[key].color2 is not None else _SPEED_T1
+    indice = max(0, min(len(scala) - 1, value - 1))
+    return scala[indice]
+
 
 def describe():
     """Elenco per l'interfaccia: chiave, nome, se ha il secondo colore."""

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation & Protocol Specs
+    url: https://github.com/NsPowEr/ControlPAD-Controller#readme
+    about: Read the protocol reverse-engineering docs and architecture overview.
+  - name: Protocol Reverse-Engineering Notes
+    url: https://github.com/NsPowEr/ControlPAD-Controller/blob/main/ControlPAD%20-%20CATTURA/PROTOCOL.md
+    about: In-depth technical specifications of the USB HID communication protocol.

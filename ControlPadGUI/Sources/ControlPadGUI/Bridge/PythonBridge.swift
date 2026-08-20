@@ -24,17 +24,27 @@ actor PythonBridge {
     /// ~72 ms di pausa dopo ogni corpo macro — e resta comodamente sotto.
     private static let requestTimeout: Duration = .seconds(45)
 
-    private let connectionStream: AsyncStream<Bool>
+    let connectionEvents: AsyncStream<Bool>
     private let connectionContinuation: AsyncStream<Bool>.Continuation
 
-    /// Stato del pad (collegato/scollegato), come lo emette bridge.py col
-    /// polling ogni 2s. La UI vi si abbona per mostrare/nascondere il banner.
-    nonisolated var connectionEvents: AsyncStream<Bool> { connectionStream }
+    let hardwareModeEvents: AsyncStream<String>
+    private let hardwareModeContinuation: AsyncStream<String>.Continuation
+
+    let hardwareProfileEvents: AsyncStream<Int>
+    private let hardwareProfileContinuation: AsyncStream<Int>.Continuation
 
     init() {
-        var continuation: AsyncStream<Bool>.Continuation!
-        connectionStream = AsyncStream { continuation = $0 }
-        connectionContinuation = continuation
+        var connCont: AsyncStream<Bool>.Continuation!
+        connectionEvents = AsyncStream { connCont = $0 }
+        connectionContinuation = connCont
+
+        var modeCont: AsyncStream<String>.Continuation!
+        hardwareModeEvents = AsyncStream { modeCont = $0 }
+        hardwareModeContinuation = modeCont
+
+        var profCont: AsyncStream<Int>.Continuation!
+        hardwareProfileEvents = AsyncStream { profCont = $0 }
+        hardwareProfileContinuation = profCont
     }
 
     func start() throws {
@@ -174,9 +184,21 @@ actor PythonBridge {
               let value = try? JSONDecoder().decode(JSONValue.self, from: data),
               case .object(let obj) = value else { return }
 
-        if obj["event"]?.stringValue == "connection" {
-            if let present = obj["present"]?.boolValue {
-                connectionContinuation.yield(present)
+        if let event = obj["event"]?.stringValue {
+            if event == "connection" {
+                if let present = obj["present"]?.boolValue {
+                    connectionContinuation.yield(present)
+                }
+            } else if event == "hardware_mode_changed" {
+                if let slot = obj["slot"]?.intValue {
+                    if slot >= 0 && slot < Effects.modes.count {
+                        hardwareModeContinuation.yield(Effects.modes[slot].id)
+                    }
+                }
+            } else if event == "hardware_profile_changed" {
+                if let prof = obj["profile"]?.intValue {
+                    hardwareProfileContinuation.yield(prof)
+                }
             }
             return
         }

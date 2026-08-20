@@ -88,23 +88,30 @@ struct PadGridView: View {
         let background = fill(position)
         let ink: Color = background.isDark ? .white : .black
 
+        let customAssignment = assignment(position)
+
         return Button {
             onTap?(position)
         } label: {
-            VStack(spacing: 1) {
-                Text("\(KeyLayout.number(at: position))")
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                if let assignment = assignment(position) {
-                    Text(assignment)
-                        .font(.system(size: 8, weight: .medium))
+            VStack(spacing: 2) {
+                if let customAssignment = customAssignment {
+                    HStack(spacing: 3) {
+                        Text("\(KeyLayout.number(at: position))")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .opacity(0.6)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 6)
+
+                    Text(customAssignment)
+                        .font(.system(size: 11, weight: .bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                        .opacity(0.75)
                 } else {
-                    // Segnaposto: senza, i tasti assegnati sarebbero più alti
-                    // degli altri e la griglia ballerebbe.
-                    Text(" ").font(.system(size: 8))
+                    Text("\(KeyLayout.number(at: position))")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
                 }
             }
             .foregroundStyle(ink)

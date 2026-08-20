@@ -10,20 +10,16 @@ struct RootView: View {
             ScrollView(.vertical) {
                 currentTab
                     .frame(maxWidth: .infinity, alignment: .top)
-                    .padding(.top, 74)
+                    .padding(.top, 120)
             }
             .scrollBounceBehavior(.basedOnSize)
-            // Una ScrollView per scheda: con una sola, condivisa, cambiando
-            // scheda restava la posizione della precedente e il contenuto
-            // partiva già scorso, finendo sotto la barra flottante.
             .id(tab)
 
             VStack(spacing: 8) {
                 GlassTabBar(selection: $tab, showSettings: $showSettings)
-                    // A registrazione macro avviata la barra è bloccata come
-                    // tutto il resto: cambiare scheda mentre si registra
-                    // lasciava i monitor addosso e la sequenza in mano alla
-                    // macro sbagliata.
+                    .disabled(app.isRecordingMacro)
+
+                HardwareBankPicker()
                     .disabled(app.isRecordingMacro)
 
                 if let startupError = app.startupError {

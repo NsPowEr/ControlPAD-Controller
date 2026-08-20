@@ -19,27 +19,36 @@ final class AppModel {
     /// stato prima salvato a mano come profilo — con le macro e le rimappature
     /// ancora *dentro il pad*, che le tiene in flash, e l'app che riapriva
     /// vuota senza più modo di mostrarle.
-    var draft = Preset(name: "Corrente") {
-        didSet { autosaveDraft() }
+    /// I 24 banchi profili fisici del dispositivo (0..23)
+    var hardwareBanks: [Preset] = []
+    var activeBankIndex: Int = 0
+
+    var draft: Preset = Preset(name: "Profilo 1") {
+        didSet {
+            if activeBankIndex >= 0 && activeBankIndex < hardwareBanks.count {
+                hardwareBanks[activeBankIndex] = draft
+                autosaveHardwareBanks()
+            }
+            autosaveDraft()
+        }
     }
 
     let presetStore = PresetStore()
-
-    /// Il salvataggio del lavoro in corso, ritardato di poco e rifatto da capo
-    /// a ogni modifica: trascinare un cursore di colore cambia `draft` decine
-    /// di volte al secondo, e non ha senso scrivere un file altrettante.
     private var draftSaveTask: Task<Void, Never>?
+    private var banksSaveTask: Task<Void, Never>?
 
     init() {
+        hardwareBanks = presetStore.loadHardwareBanks()
+        // La bozza salvata appartiene al banco su cui si stava lavorando, non
+        // al banco 0: ripartire da zero la archivierebbe nel posto sbagliato
+        // alla prima sincronizzazione col dispositivo.
+        activeBankIndex = presetStore.loadActiveBank()
         if let salvato = presetStore.loadDraft() {
-            // Nota: sotto @Observable il didSet scatta anche qui, a differenza
-            // di una proprietà memorizzata normale. Non è un problema — il
-            // salvataggio riscrive quello che ha appena letto — ma è il tipo di
-            // dettaglio che confonde chi legge il codice più tardi.
             draft = salvato
+        } else if !hardwareBanks.isEmpty {
+            draft = hardwareBanks[0]
         }
-        // Il ritardo del salvataggio lascerebbe fuori l'ultima modifica fatta
-        // un istante prima di ⌘Q: alla chiusura si scrive subito, senza aspettare.
+
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil, queue: .main
@@ -47,9 +56,60 @@ final class AppModel {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.draftSaveTask?.cancel()
+                self.banksSaveTask?.cancel()
                 self.presetStore.saveDraft(self.draft)
+                self.presetStore.saveHardwareBanks(self.hardwareBanks)
             }
         }
+    }
+
+    private func autosaveHardwareBanks() {
+        banksSaveTask?.cancel()
+        let scatto = hardwareBanks
+        banksSaveTask = Task { [presetStore] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            presetStore.saveHardwareBanks(scatto)
+        }
+    }
+
+    func selectHardwareBank(_ index: Int, sendToHardware: Bool = true) async {
+        guard index >= 0 && index < 24 else { return }
+        if index < hardwareBanks.count {
+            hardwareBanks[activeBankIndex] = draft
+            activeBankIndex = index
+            draft = hardwareBanks[index]
+            presetStore.saveHardwareBanks(hardwareBanks)
+            presetStore.saveActiveBank(index)
+        }
+        if sendToHardware && isConnected {
+            try? await bridge.setActiveProfile(index)
+            try? await applyLighting(draft.lighting)
+        } else if isConnected {
+            // Cambio arrivato dal pad: il banco l'ha già commutato lui, e la
+            // sua illuminazione per tasto se la porta dietro — quella è
+            // memorizzata per banco. I quattro LED indicatori **no**: il
+            // dispositivo ne ha un registro solo, `0x00fc`, condiviso da tutti
+            // i profili. Misurato — scritto rosso col pad sul banco 3, il
+            // banco 7 li mostra rossi lo stesso; scritto blu sul 7, tornando
+            // al 3 sono blu. Se non li riapplichiamo qui restano quelli del
+            // profilo precedente, ed è il motivo per cui gli effetti dei LED
+            // non seguivano il profilo cambiato dal pad.
+            try? await applyIndicators(draft.lighting)
+        }
+    }
+
+    /// Porta l'app sul banco su cui il dispositivo si trova davvero, senza
+    /// riapplicargli niente: all'avvio ci pensa `restoreLighting`, e al
+    /// ricollegamento pure. Solo lo scambio di stato, quindi.
+    private func allineaAlBanco(_ index: Int) {
+        guard index >= 0, index < hardwareBanks.count, index != activeBankIndex
+        else { return }
+        hardwareBanks[activeBankIndex] = draft
+        activeBankIndex = index
+        draft = hardwareBanks[index]
+        presetStore.saveHardwareBanks(hardwareBanks)
+        presetStore.saveActiveBank(index)
     }
 
     private func autosaveDraft() {
@@ -59,6 +119,64 @@ final class AppModel {
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
             presetStore.saveDraft(scatto)
+        }
+    }
+
+    /// Propagazione in corso: (fatti, totale). La scrittura di un banco costa
+    /// qualche secondo, e ventiquattro banchi sono un minuto abbondante — senza
+    /// un segno di avanzamento sembrerebbe che l'app si sia piantata.
+    private(set) var propagazione: (fatti: Int, totale: Int)?
+
+    /// Copia l'assegnazione di un tasto su altri profili e la **scrive** lì.
+    ///
+    /// La keymap del dispositivo è per banco: un tasto rimappato su un profilo
+    /// non esiste sugli altri. Vale per le rimappature normali e, in modo più
+    /// visibile, per "Profilo +/−", che premuto su un profilo dove non è
+    /// assegnato non fa niente. Chi vuole lo stesso tasto ovunque deve
+    /// scriverlo ovunque, ed è quello che fa questo metodo.
+    ///
+    /// Scrive **solo** i banchi indicati, uno per uno, e alla fine rimette il
+    /// pad sul banco da cui si è partiti. Il banco corrente non è incluso
+    /// d'ufficio: chi lo vuole lo mette fra i bersagli.
+    func propagaAssegnazione(key: UInt8, to banchi: [Int]) async throws {
+        let azione = draft.remaps[key]
+        let selettore = draft.profileSelectors.first { KeyLayout.key(atColumnIndex: $0.key) == key }
+        let bancoIniziale = activeBankIndex
+        let bersagli = banchi.filter { $0 >= 0 && $0 < hardwareBanks.count }
+        guard !bersagli.isEmpty else { return }
+
+        propagazione = (0, bersagli.count)
+        defer { propagazione = nil }
+
+        for (fatti, banco) in bersagli.enumerated() {
+            var preset = banco == activeBankIndex ? draft : hardwareBanks[banco]
+            if let azione {
+                preset.remaps[key] = azione
+            } else {
+                preset.remaps.removeValue(forKey: key)
+            }
+            // Un tasto "seleziona profilo" porta con sé quale profilo attiva:
+            // senza, sugli altri banchi resterebbe un selettore senza meta.
+            if let selettore {
+                preset.profileSelectors[selettore.key] = selettore.value
+            }
+            hardwareBanks[banco] = preset
+            if banco == activeBankIndex { draft = preset }
+
+            if isConnected {
+                let esito = try await bridge.writeSession(preset: preset, profile: banco)
+                if esito.verified == false {
+                    throw PythonBridge.BridgeError(
+                        message: L("error.writeNotVerified"))
+                }
+            }
+            propagazione = (fatti + 1, bersagli.count)
+        }
+
+        presetStore.saveHardwareBanks(hardwareBanks)
+        if isConnected {
+            try? await bridge.setActiveProfile(bancoIniziale)
+            try? await applyLighting(draft.lighting)
         }
     }
 
@@ -74,8 +192,33 @@ final class AppModel {
         } catch {
             startupError = error.localizedDescription
         }
-        if isConnected { await restoreLighting() }
+        // Prima si scopre dove sta il pad, poi si applica. Nell'altro ordine
+        // l'app applicava l'illuminazione della bozza e un istante dopo se la
+        // vedeva sostituire dall'allineamento col dispositivo: nel diario del
+        // motore restava uno `start_indicator_effect` seguito dallo `stop`,
+        // "animazione chiusa: 1 fotogrammi", e i LED del profilo non
+        // partivano mai.
+        if isConnected {
+            if let stato = try? await bridge.state(), let banco = stato.profile {
+                allineaAlBanco(banco)
+            }
+            await restoreLighting()
+        }
         Task { await observeConnection() }
+        Task { await observeHardwareEvents() }
+    }
+
+    private func observeHardwareEvents() async {
+        Task {
+            for await modeID in bridge.hardwareModeEvents {
+                draft.lighting.modeID = modeID
+            }
+        }
+        Task {
+            for await prof in bridge.hardwareProfileEvents {
+                await selectHardwareBank(prof, sendToHardware: false)
+            }
+        }
     }
 
     /// Il pad perde l'illuminazione quando lo si stacca — è così anche col
@@ -153,9 +296,22 @@ final class AppModel {
         // il device per conto suo — la scrittura di sessione per prima — aspetta
         // che il thread dei LED lo abbia lasciato, perché due handle insieme
         // sullo stesso device non sono garantiti. Riparte da applyLighting.
-        let senzaAck = try await bridge.writeSession(preset: draft)
+        // Il banco di destinazione va detto: senza, la sessione finisce nel
+        // banco su cui il pad si trova in quel momento, e modificare un
+        // profilo qualunque scriveva sempre sullo stesso.
+        let esito = try await bridge.writeSession(preset: draft,
+                                                  profile: activeBankIndex)
+        // Una rilettura che non torna vale come scrittura fallita: meglio un
+        // errore visibile di un successo che non c'è stato.
+        if esito.verified == false {
+            let dove = esito.profileWritten.map {
+                " " + String(format: L("error.writeNotVerified.onProfile"), $0 + 1)
+            } ?? ""
+            throw PythonBridge.BridgeError(
+                message: L("error.writeNotVerified") + dove)
+        }
         try await applyLighting(draft.lighting)
-        return senzaAck
+        return esito.missingAcks
     }
 
     /// Rende un profilo salvato quello corrente e lo scrive per intero sul

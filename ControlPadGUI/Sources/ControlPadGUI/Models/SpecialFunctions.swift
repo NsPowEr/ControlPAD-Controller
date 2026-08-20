@@ -59,6 +59,10 @@ enum SpecialFunctions {
               icon: "sun.min.fill", group: .lighting),
         .init(code: 0x0110, titleKey: "function.selectProfile", shortLabel: "Prof",
               icon: "square.stack.3d.up.fill", group: .profile),
+        .init(code: 0x0111, titleKey: "function.nextProfile", shortLabel: "Prof+",
+              icon: "chevron.forward.circle.fill", group: .profile),
+        .init(code: 0x0112, titleKey: "function.previousProfile", shortLabel: "Prof−",
+              icon: "chevron.backward.circle.fill", group: .profile),
     ]
 
     static func inGroup(_ group: SpecialFunction.Group) -> [SpecialFunction] {
@@ -77,8 +81,19 @@ enum SpecialFunctions {
     /// scritture, o il tasto conserva l'assegnazione che aveva prima.
     static let selectProfile: UInt16 = 0x0110
 
-    /// Quanti banchi di profilo ha il device. Ventiquattro come i tasti: la
-    /// tabella `51 90` porta un numero di profilo per tasto, un byte ciascuno.
+    /// Scorrere i profili avanti e indietro, con avvolgimento a 24.
+    ///
+    /// **Non sono codici azione del dispositivo.** Il campo azione di `51 20`
+    /// non ha un codice per questo — cercarlo in tutte le catture non dà
+    /// niente. Un tasto diventa un tasto profilo venendo *tolto* dalla
+    /// tabella `51 94`, e nella keymap resta `00ff`. Questi due valori sono
+    /// quindi convenzioni interne all'app: viaggiano nel campo `remaps` come
+    /// le altre funzioni, e `session.py` li riconosce e li traduce nella
+    /// forma vera invece di scriverli sul dispositivo.
+    static let nextProfile: UInt16 = 0x0111
+    static let previousProfile: UInt16 = 0x0112
+
+    /// Quanti banchi di profilo ha il device: 24 profili.
     static let profileCount = 24
 
     /// Tasto muto: premendolo non esce niente.

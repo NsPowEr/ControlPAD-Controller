@@ -287,7 +287,8 @@ def costruisci(nome, colori=None, velocita=VELOCITA_MAX // 2, luminosita=255):
     return fotogramma
 
 
-def riproduci_finche(pad, fotogramma, ferma, fps=FPS, commit=False):
+def riproduci_finche(pad, fotogramma, ferma, fps=FPS, commit=False,
+                     fra_i_fotogrammi=None, ogni=0.25, banco=None):
     """Come `effetti.riproduci`, ma senza durata: va avanti finche `ferma` —
     un `threading.Event` — non viene alzato.
 
@@ -296,14 +297,32 @@ def riproduci_finche(pad, fotogramma, ferma, fps=FPS, commit=False):
     di slittare per sempre. L'attesa passa da `ferma.wait()` e non da `sleep`,
     cosi lo stop e immediato e non aspetta la fine del fotogramma in corso.
 
+    `fra_i_fotogrammi` viene chiamata con `pad` ogni `ogni` secondi, fra un
+    fotogramma e l'altro. Serve a chi deve parlare col device mentre
+    l'animazione va: su macOS il device lo tiene un processo — anzi, un
+    handle — solo, e finche questo ciclo gira nessun altro riesce ad aprirlo.
+    Chi ha bisogno di chiedere qualcosa al pad passa quindi di qui, sullo
+    stesso handle e nello stesso thread, senza contendere niente a nessuno.
+    Un'eccezione dalla callback non ferma l'animazione: e ospite, non padrona.
+
     Restituisce (fotogrammi, secondi, saltati); `saltati` conta le scadenze
     gia passate all'arrivo, cioe di quanto il ritmo chiesto eccede il canale.
     """
     inizio = time.perf_counter()
     n = saltati = 0
+    prossima_visita = inizio + ogni
     while not ferma.is_set():
-        pad.set_indicators(fotogramma(time.perf_counter() - inizio), commit=commit)
+        pad.set_indicators(fotogramma(time.perf_counter() - inizio),
+                           commit=commit, banco=banco)
         n += 1
+
+        if fra_i_fotogrammi is not None and time.perf_counter() >= prossima_visita:
+            prossima_visita = time.perf_counter() + ogni
+            try:
+                fra_i_fotogrammi(pad)
+            except Exception:
+                pass
+
         ritardo = (inizio + n / fps) - time.perf_counter()
         if ritardo > 0:
             ferma.wait(ritardo)

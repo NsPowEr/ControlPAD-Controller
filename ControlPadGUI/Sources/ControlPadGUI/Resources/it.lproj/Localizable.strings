@@ -56,7 +56,9 @@
 "function.speedUp" = "Velocità +";
 "function.brightnessUp" = "Luminosità +";
 "function.brightnessDown" = "Luminosità −";
-"function.selectProfile" = "Seleziona profilo";
+"function.selectProfile" = "Seleziona profilo specifico";
+"function.nextProfile" = "Profilo successivo (+)";
+"function.previousProfile" = "Profilo precedente (−)";
 
 "session.write" = "Scrivi su dispositivo";
 "session.written" = "Scritto sul dispositivo";
@@ -83,7 +85,9 @@
 "session.blockedByMacro" = "\"%@\" non è valida — correggila prima di scrivere";
 "session.macroRemapConflict" = "%d tasti hanno sia una macro sia una rimappatura: comportamento non garantito";
 
-"profiles.list" = "Profili";
+"profiles.hardwareTitle" = "Banchi Hardware del Dispositivo (1–24)";
+"profiles.hardwareSubtitle" = "Seleziona uno dei 24 banchi conservati dentro la memoria del pad per visualizzarlo e configurarlo.";
+"profiles.list" = "Profili salvati su Mac";
 "profiles.empty" = "Nessun profilo salvato. Configura Illuminazione/Mappatura/Macro, poi salva lo stato corrente come profilo.";
 "profiles.loadFailed" = "Il file dei profili esiste ma non si è lasciato leggere (%@). Non viene sovrascritto: i profili sono ancora in ~/Library/Application Support/ControlPad/presets.json.";
 "profiles.saveCurrent" = "Salva stato corrente come nuovo profilo";
@@ -174,3 +178,25 @@
 "mapping.disable" = "Disattiva tasto";
 "mapping.disabled" = "Disattivato — non scrive nulla";
 "mapping.disabled.short" = "off";
+
+"bank.hardwareLabel" = "Banco HW:";
+"settings.diagnostics" = "Diagnostica";
+"settings.noLogYet" = "Nessun log del motore ancora disponibile.";
+"settings.refreshLog" = "Aggiorna";
+"settings.openLog" = "Apri in Console";
+"settings.exportLog" = "Esporta log";
+"error.writeNotVerified" = "La scrittura non si rilegge dal dispositivo: la configurazione potrebbe non essere stata salvata.";
+
+"error.writeNotVerified.onProfile" = "(il pad è sul profilo %d)";
+
+"mapping.scope.title" = "Su quali profili";
+"mapping.scope.thisProfile" = "Solo questo";
+"mapping.scope.someProfiles" = "Alcuni profili";
+"mapping.scope.allProfiles" = "Tutti i profili";
+"mapping.scope.apply" = "Copia su %d profili";
+"mapping.scope.writing" = "Scrittura %d di %d…";
+"mapping.scope.selectAll" = "Seleziona tutti";
+"mapping.scope.selectNone" = "Deseleziona";
+"mapping.scope.currentProfile" = "Profilo corrente: l\u2019assegnazione \u00e8 gi\u00e0 qui";
+"mapping.scope.thisProfileHint" = "Il tasto vale solo su questo profilo. La keymap del pad \u00e8 per profilo.";
+"mapping.scope.otherHint" = "Ogni profilo scelto viene riscritto sul dispositivo: qualche secondo ciascuno.";

@@ -13,6 +13,11 @@ let package = Package(
                 .process("Resources/it.lproj"),
                 .process("Resources/en.lproj"),
             ]
-        )
+        ),
+        .testTarget(
+            name: "ControlPadGUITests",
+            dependencies: ["ControlPadGUI"],
+            path: "Tests/ControlPadGUITests"
+        ),
     ]
 )

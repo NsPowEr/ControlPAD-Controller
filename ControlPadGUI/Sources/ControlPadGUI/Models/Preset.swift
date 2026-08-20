@@ -42,6 +42,18 @@ struct Preset: Identifiable, Codable, Sendable, Hashable {
     }
 }
 
+struct EffectSlotConfig: Codable, Sendable, Hashable {
+    var color: RGBColor = .white
+    var secondColor: RGBColor = .white
+    var speed: UInt8 = Effects.defaultSpeed
+    
+    init(color: RGBColor = .white, secondColor: RGBColor = .white, speed: UInt8 = Effects.defaultSpeed) {
+        self.color = color
+        self.secondColor = secondColor
+        self.speed = speed
+    }
+}
+
 struct LightingConfig: Codable, Sendable, Hashable {
     var modeID: String = "static"
     var color: RGBColor = .white
@@ -52,6 +64,10 @@ struct LightingConfig: Codable, Sendable, Hashable {
     var brightness: UInt8 = 255
     /// Usato solo dalla modalità "Personalizza" (colore per singolo tasto).
     var perKeyColors: [GridPosition: RGBColor] = [:]
+    
+    /// Tutti gli slot modificabili, così quando si cambia modalità o si salva
+    /// vengono scritti tutti e restano selezionabili tramite hardware.
+    var slots: [String: EffectSlotConfig] = [:]
 
     /// I quattro LED sopra il pad, da sinistra a destra. Hanno un comando
     /// tutto loro (`55 50`) e non fanno parte della tabella per-tasto: sono
@@ -65,7 +81,7 @@ struct LightingConfig: Codable, Sendable, Hashable {
 
     private enum CodingKeys: String, CodingKey {
         case modeID, color, secondColor, speed, brightness, perKeyColors
-        case indicatorColors, indicatorEffect
+        case slots, indicatorColors, indicatorEffect
     }
 
     init() {}
@@ -81,6 +97,7 @@ struct LightingConfig: Codable, Sendable, Hashable {
         brightness = try c.decodeIfPresent(UInt8.self, forKey: .brightness) ?? 255
         perKeyColors = try c.decodeIfPresent([GridPosition: RGBColor].self,
                                               forKey: .perKeyColors) ?? [:]
+        slots = try c.decodeIfPresent([String: EffectSlotConfig].self, forKey: .slots) ?? [:]
         let saved = try c.decodeIfPresent([RGBColor].self, forKey: .indicatorColors)
         indicatorColors = IndicatorEffects.normalized(saved ?? IndicatorEffects.defaultColors)
         indicatorEffect = try c.decodeIfPresent(String.self, forKey: .indicatorEffect)

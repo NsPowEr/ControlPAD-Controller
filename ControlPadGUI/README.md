@@ -3,7 +3,7 @@
 App nativa SwiftUI (Liquid Glass, macOS 26+) per il Cooler Master ControlPad,
 con le stesse quattro schede dell'app Windows ufficiale: Illuminazione,
 Mappatura tasti, Macro, Profili — più una sottopagina Impostazioni con
-selezione lingua a runtime.
+selezione lingua a runtime e un pannello diagnostico.
 
 Il protocollo USB non è riscritto qui: questa app pilota il pad lanciando
 `../ControlPadEngine/bridge.py` come sottoprocesso e parlandoci in JSON su
@@ -88,8 +88,7 @@ con l'app chiusa.
   `PROTOCOL.md`.
 - **Nome macro** oltre 12 byte, caratteri non codificabili, macro vuota: il
   bottone "Scrivi su dispositivo" si disabilita davvero finché non correggi.
-- **Velocità degli effetti reattivi**: il byte è identificato (offset 36) ma i
-  valori sensati per ciascun effetto non sono stati esplorati a fondo.
+- **Velocità degli effetti reattivi**: normalizzata su una scala 1-10 (il byte all'offset 36 è stato identificato e mappato per tutti gli effetti).
 - **Macro e rimappatura sullo stesso tasto**: permesse ma segnalate, il
   comportamento del dispositivo in quel caso non compare in nessuna cattura.
 - **Riassegnazione delle rotelle**: la scheda la permette e lo dice, ma
@@ -104,4 +103,9 @@ degli ACK:
 
 ```bash
 cd ../ControlPadEngine && python3 -m unittest discover -s tests
+```
+
+Swift test (Package.swift test target):
+```bash
+cd ControlPadGUI && swift test
 ```

@@ -12,8 +12,8 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import effects                                                      # noqa: E402
-from macro import (LSHIFT, PRESS, RELEASE, TERMINATOR, EventList,   # noqa: E402
-                   events_for, events_for_combo, macro_packets)
+from macro import (LSHIFT, PRESS, RELEASE, TERMINATOR, EventList,
+                   events_for, events_for_combo, macro_packets, sanitize_name)
 
 
 def eventi(body):
@@ -157,6 +157,56 @@ class Modalita(unittest.TestCase):
             if chiave == "custom":
                 continue
             self.assertIn(chiave, effects.BY_KEY, chiave)
+
+class SanitizzazioneNomi(unittest.TestCase):
+    def test_nome_corto_viene_paddato_con_zeri(self):
+        self.assertEqual(sanitize_name("abc"), b"abc" + b"\x00" * 9)
+
+    def test_nome_esatto_dodici_byte(self):
+        self.assertEqual(sanitize_name("abcdefghijkl"), b"abcdefghijkl")
+
+    def test_nome_lungo_viene_troncato_a_dodici(self):
+        result = sanitize_name("abcdefghijklmno")
+        self.assertEqual(len(result), 12)
+        self.assertEqual(result, b"abcdefghijkl")
+
+    def test_nome_vuoto(self):
+        self.assertEqual(sanitize_name(""), b"\x00" * 12)
+
+    def test_caratteri_utf8_multibyte_non_spezzati(self):
+        # 'è' e 2 byte in UTF-8: con 11 byte ASCII + è si sfora, e il
+        # troncamento deve togliere l'intero codepoint invece di spezzarlo.
+        result = sanitize_name("abcdefghijkè")
+        self.assertEqual(len(result), 12)
+        try:
+            result.rstrip(b'\x00').decode('utf-8')
+        except UnicodeDecodeError:
+            self.fail("il nome troncato non e UTF-8 valido")
+
+    def test_max_bytes_personalizzabile(self):
+        self.assertEqual(len(sanitize_name("test", max_bytes=8)), 8)
+
+
+class NormalizzazioneVelocita(unittest.TestCase):
+    def test_valore_nel_range_1_10_viene_convertito(self):
+        result = effects.normalize_speed(5)
+        self.assertIsInstance(result, int)
+        self.assertGreater(result, 0)
+
+    def test_valore_grezzo_oltre_10_passa_invariato(self):
+        self.assertEqual(effects.normalize_speed(15), 15)
+
+    def test_none_resta_none(self):
+        self.assertIsNone(effects.normalize_speed(None))
+
+    def test_tipo2_usa_scala_diversa(self):
+        t1 = effects.normalize_speed(5, key="static")
+        t2 = effects.normalize_speed(5, key="crosshair")
+        self.assertNotEqual(t1, t2)
+
+    def test_estremi_non_escono_dal_range(self):
+        self.assertEqual(effects.normalize_speed(0), effects._SPEED_T1[0])
+        self.assertEqual(effects.normalize_speed(10), effects._SPEED_T1[-1])
 
 
 if __name__ == "__main__":

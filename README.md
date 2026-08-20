@@ -44,6 +44,14 @@ swift run                                 # l'app, in sviluppo
 * `Come_usare_manipolare_i_4_led/ANIMAZIONI.md` — i quattro LED sopra il pad,
   che sono l'unica superficie su cui si possano far scorrere fotogrammi.
 
+Novità recenti:
+* 71 test unitari Python (incluso motore offline).
+* Sanitizzazione nomi macro (UTF-8, troncamento/padding a 12 byte).
+* Normalizzazione velocità su scala 1-10 per tutti i 14 effetti.
+* Commenti di fase del protocollo inline in `skeleton.py`.
+* Target di test Swift (`ControlPadGUITests`).
+* Pannello diagnostico in Impostazioni.
+
 Regola generale del progetto: **un numero misurato dall'host non dimostra
 niente sul pad finché non lo si guarda.** Il device risponde ACK anche a quello
 che non esegue.

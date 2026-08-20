@@ -54,10 +54,37 @@ STATIC_HEADER = "5683000001000000000100c100000000"
 COMMIT = "4180"
 APPLY = "51280000ff"
 
-# The four indicator LEDs above the pad: twelve bytes at address 0x00fc, four
-# RGB triplets. Operation 0x50 writes the range, 0x40 reads it back.
-INDICATOR_WRITE = "5550fc000c"
-INDICATOR_READ = "5540fc000c"
+# The four indicator LEDs above the pad: twelve bytes — four RGB triplets —
+# **per profile bank**. Twenty-four slots of twelve bytes each, starting at
+# 0x00f0:
+#
+#     indirizzo(banco) = 0x00f0 + banco * 12
+#
+# The official software reads exactly those twenty-four addresses — 0x00f0,
+# 0x00fc, 0x0108 … 0x0204 — every time the active bank changes; the sweep is
+# in `profilo + e -.pcapng`.
+#
+# This project used the fixed address 0x00fc for a long time, which is the
+# *second* slot: bank 1, the profile the app calls P2. Every indicator write
+# landed there whatever bank was active, so the LEDs answered on P2 and
+# nowhere else. Reading back looked consistent only because the read used the
+# same fixed address as the write.
+INDICATOR_BASE = 0x00F0
+INDICATOR_LEN = 12
+INDICATOR_BANKS = 24
+
+
+def indicator_address(banco):
+    """Address of the indicator slot for a profile bank (0..23)."""
+    if not 0 <= banco < INDICATOR_BANKS:
+        raise ValueError(f"banco fuori scala: {banco}")
+    return INDICATOR_BASE + banco * INDICATOR_LEN
+
+
+def _indicator_cmd(op, banco):
+    """`55 <op> <indirizzo a 16 bit LE> 0c`, scrittura (0x50) o lettura (0x40)."""
+    return bytes([0x55, op]) + indicator_address(banco).to_bytes(2, "little") \
+        + bytes([INDICATOR_LEN])
 
 # The twelve bytes ahead of the grid, copied from the official app. Zeroing
 # them costs the keys carried by the second chunk.
@@ -83,6 +110,19 @@ def _pad(data):
         data = bytes.fromhex(data)
     assert len(data) <= REPORT_SIZE, f"payload too long: {len(data)}"
     return data + bytes(REPORT_SIZE - len(data))
+
+
+# Chi vuole vedere i report non richiesti che `attendi_ack` scarta. Il bridge
+# ci attacca il suo decodificatore all'avvio.
+#
+# Serve perché l'ascolto continuo del bridge apre un secondo handle, e su macOS
+# quel secondo `open_path` **fallisce** finché un altro thread tiene il device:
+# durante un'animazione degli indicatori, o durante una scrittura di sessione,
+# il pad resta senza nessuno che lo ascolti, e un cambio di banco fatto a mano
+# in quel momento non arriva mai all'app. Ma i report ci passano lo stesso —
+# sono esattamente quelli che questa funzione butta via per non slittare
+# sull'ACK. Invece di buttarli, si consegnano.
+OSSERVATORE = None
 
 
 def attendi_ack(dev, opcode, timeout_ms=100, verbose=False, label=""):
@@ -111,12 +151,21 @@ def attendi_ack(dev, opcode, timeout_ms=100, verbose=False, label=""):
         if not reply:
             continue
         reply = bytes(reply)
-        if reply[:2] == opcode:
+        if reply[:len(opcode)] == opcode or reply[1:1 + len(opcode)] == opcode:
             if verbose:
                 print(f"  {label:<10} {reply.hex()[:8]}")
             return reply
         if verbose:
             print(f"  {label:<10} scarto {reply.hex()[:8]}")
+        if OSSERVATORE is not None:
+            # Non deve mai far cadere l'attesa dell'ACK: se l'osservatore
+            # solleva, il comando in corso perderebbe la sua conferma e la
+            # sessione slitterebbe — proprio il guasto che questa funzione
+            # esiste per evitare.
+            try:
+                OSSERVATORE(reply)
+            except Exception:
+                pass
 
 
 class ControlPad:
@@ -185,6 +234,23 @@ class ControlPad:
         """Light the whole pad in one colour."""
         self.set_effect(EFFECT_STATIC, r, g, b, brightness=brightness)
 
+    def set_profile(self, profile):
+        """Select active profile bank on hardware (0..23).
+
+        The `41 80` commits around the command are not decoration: without
+        them the device acknowledges `51 00 00 00 <bank>` and **stays on the
+        bank it was on**. Measured on the device — asking for bank 9 while on
+        bank 8 left it on 8, and reading it back with `52 00 00 00` said so;
+        the same command wrapped in commits moved it. The official software
+        wraps it the same way in
+        `selezione_singola_di_un_profilo_alla_volta_da_1_a_24_per_tornare.pcapng`,
+        which also sends `42 10 00 00 01 00 00 01` twice afterwards — that
+        pair turned out not to be needed, so it is left out.
+        """
+        self._send(COMMIT, "commit")
+        self._send(bytes([0x51, 0x00, 0x00, 0x00, profile & 0xFF]), "profile")
+        self._send(COMMIT, "commit")
+
     def set_mode(self, key, color1=None, color2=None, speed=None):
         """Select one of the fourteen lighting modes by name.
 
@@ -199,13 +265,26 @@ class ControlPad:
         self._send(command, "mode")
         self._finish()
 
-    def set_indicators(self, colours, commit=False):
+    def banco_attivo(self):
+        """Il banco di profilo su cui il pad si trova (0..23), riletto da lui."""
+        risposta = self._send(bytes([0x52, 0x00, 0x00, 0x00]), "banco", settle=0)
+        if risposta is None or risposta[4] >= INDICATOR_BANKS:
+            return None
+        return risposta[4]
+
+    def set_indicators(self, colours, commit=False, banco=None):
         """Colour the four LEDs above the pad. colours: list of (r, g, b).
+
+        `banco` says *which profile's* four LEDs: they are stored one slot per
+        bank, and writing the wrong slot is silent — the device acknowledges
+        and nothing lights up. Passing None asks the device where it is, which
+        costs one report; the animation passes the bank it already knows.
 
         These are the profile indicators and are not part of the per-key
         table — writing that one black leaves them untouched. They live at
-        address 0x00fc as four plain RGB triplets and take effect immediately
-        instead of going through the profile, so they can be animated.
+        `indicator_address(banco)` as four plain RGB triplets and take effect
+        immediately instead of going through the profile, so they can be
+        animated.
 
         Measured on the device (ANIMAZIONI.md §2.2): the 41 04 that opens the
         transaction is mandatory — without it the write is not even
@@ -213,24 +292,40 @@ class ControlPad:
         frame from 6.00 ms to 4.00 ms. Animation therefore leaves it out; a
         colour meant to stay put may as well pay for it.
         """
+        if banco is None:
+            banco = self.banco_attivo()
+            if banco is None:
+                return
         data = bytearray()
         for i in range(4):
             data += bytes(colours[i] if i < len(colours) else (0, 0, 0))
         self._send("4104", "begin", settle=0)
-        self._send(bytes.fromhex(INDICATOR_WRITE) + data, "indicators", settle=0)
+        self._send(_indicator_cmd(0x50, banco) + data, "indicators", settle=0)
         if commit:
-            self._send(COMMIT, "commit", settle=0)
+            # `COMMIT` soltanto, **non** `_finish()`. Quello manda anche
+            # `APPLY` = `51 28 00 00 ff`, che scrive 0xff nel registro della
+            # modalita di illuminazione — lo stesso da cui `52 28 00 00`
+            # rilegge 255, cioe "nessuna modalita". I quattro indicatori
+            # scritti con `_finish()` non si accendevano su nessun banco,
+            # mentre l'animazione, che passa di qui con `commit=False`, li
+            # accende: la differenza fra i due percorsi era solo quell'apply.
+            self._send(COMMIT, "commit")
 
-    def read_indicators(self):
-        """The four colours the device currently holds, read back from 0x00fc.
+    def read_indicators(self, banco=None):
+        """The four colours held for a profile bank, read back from its slot.
 
         The same address answers reads with operation 0x40, and the device
         applies no curve of its own: what comes back is byte for byte what was
         written. It is the one way to tell a write the device ignored from a
-        write it took and did not show.
+        write it took and did not show — provided the read uses the *same*
+        bank as the write, which is why `banco` is here and not implied.
         """
+        if banco is None:
+            banco = self.banco_attivo()
+            if banco is None:
+                return None
         self._send("4104", "begin", settle=0)
-        reply = self._send(INDICATOR_READ, "read", settle=0)
+        reply = self._send(_indicator_cmd(0x40, banco), "read", settle=0)
         if reply is None:
             return None
         data = reply[5:5 + 3 * INDICATOR_LEDS]
