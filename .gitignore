@@ -19,3 +19,7 @@ venv/
 
 # Le catture .pcapng NON sono ignorate: su macOS non e possibile registrarne
 # di nuove, quindi sono la fonte insostituibile di tutto il protocollo.
+
+# Claude Code: shared config is tracked, personal overrides and worktrees are not
+.claude/settings.local.json
+.claude/worktrees/
