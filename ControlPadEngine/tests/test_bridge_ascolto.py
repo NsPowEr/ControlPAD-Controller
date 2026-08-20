@@ -997,3 +997,72 @@ class VerificaTastiProfiloTest(unittest.TestCase):
         self.assertTrue(any("0x35" in r for r in self.righe))
         self.assertFalse(any("0x1d" in r for r in self.righe),
                          "il tasto profilo non deve comparire fra i problemi")
+
+
+class RipristinoAllUscitaTest(unittest.TestCase):
+    """Alla chiusura il device va chiesto a tutti e tre quelli che lo tengono.
+
+    L'animazione, l'ascolto e l'handle persistente aprono ciascuno il proprio,
+    e su macOS il secondo `open_path` fallisce. Fermando la sola animazione —
+    com'era — il ripristino dei colori fissi finiva sempre in "open failed", e
+    i LED restavano sull'ultimo fotogramma dell'animazione invece di tornare ai
+    colori scelti. Si vedeva a ogni chiusura dell'app.
+    """
+
+    def setUp(self):
+        self.veri = (bridge._ferma_animazione, bridge._ferma_polling,
+                     bridge._chiudi_pad_persistente, bridge._device_present,
+                     bridge.ControlPad, bridge._log, bridge._colori_fissi)
+        self.mollati = []
+        bridge._ferma_animazione = lambda: self.mollati.append("animazione")
+        bridge._ferma_polling = lambda *a, **k: self.mollati.append("ascolto")
+        bridge._chiudi_pad_persistente = lambda: self.mollati.append("persistente")
+        bridge._device_present = lambda: True
+        bridge._log = lambda t: None
+        bridge._colori_fissi = [(1, 2, 3)] * 4
+
+    def tearDown(self):
+        (bridge._ferma_animazione, bridge._ferma_polling,
+         bridge._chiudi_pad_persistente, bridge._device_present,
+         bridge.ControlPad, bridge._log, bridge._colori_fissi) = self.veri
+
+    def test_molla_tutti_e_tre_prima_di_aprire(self):
+        aperto = []
+
+        class Pad:
+            def __enter__(self): return self
+            def __exit__(self, *e): return False
+            def set_indicators(self, colori, commit=False, banco=None):
+                aperto.append((tuple(colori), banco))
+
+        bridge.ControlPad = Pad
+        bridge._ripristina_fissi()
+        self.assertEqual(set(self.mollati), {"animazione", "ascolto", "persistente"})
+        self.assertEqual(len(aperto), 1)
+
+    def test_riprova_se_il_device_e_ancora_occupato(self):
+        # Su macOS il rilascio non e immediato: chiudere e riaprire subito puo
+        # trovarlo ancora preso.
+        tentativi = []
+
+        class PadRestio:
+            def __enter__(self):
+                tentativi.append(1)
+                if len(tentativi) < 3:
+                    raise OSError("open failed")
+                return self
+
+            def __exit__(self, *e): return False
+            def set_indicators(self, colori, commit=False, banco=None): pass
+
+        bridge.ControlPad = PadRestio
+        bridge._ripristina_fissi()
+        self.assertEqual(len(tentativi), 3, "deve riprovare finche riesce")
+
+    def test_un_device_che_non_si_apre_mai_non_fa_cadere_l_uscita(self):
+        class PadMorto:
+            def __enter__(self): raise OSError("open failed")
+            def __exit__(self, *e): return False
+
+        bridge.ControlPad = PadMorto
+        bridge._ripristina_fissi()          # non deve sollevare

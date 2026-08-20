@@ -158,15 +158,34 @@ def _ripristina_fissi():
     dal gestore di SIGTERM, che è come `Process.terminate()` di Swift chiude il
     motore — senza gestore Python uscirebbe subito, prima di riscrivere niente.
     """
+    # Vanno mollati **tutti e tre** i modi in cui il device puo essere in
+    # mano a qualcun altro, non solo l'animazione: l'ascolto tiene un handle
+    # suo, e su macOS il secondo `open_path` fallisce. Fermando la sola
+    # animazione, qui usciva sempre "ripristino indicatori fallito: open
+    # failed" e i LED restavano sull'ultimo fotogramma invece di tornare ai
+    # colori fissi.
     _ferma_animazione()
+    _ferma_polling()
+    _chiudi_pad_persistente()
+
     if not _colori_fissi or not _device_present():
         return
-    try:
-        with ControlPad() as pad:
-            pad.set_indicators(_colori_fissi, commit=True, banco=_banco_noto())
-        _log(f"   indicatori riportati ai fissi {_colori_fissi}")
-    except Exception as exc:
-        _log(f"!! ripristino indicatori fallito: {exc}")
+
+    banco = _banco_noto()
+    # Chiudere un device su macOS non lo libera all'istante: il rilascio
+    # dell'IOHIDDevice arriva poco dopo, e un'apertura immediata puo ancora
+    # trovarlo occupato. Qualche tentativo ravvicinato costa meno di mezzo
+    # secondo e toglie di mezzo la corsa.
+    for tentativo in range(5):
+        try:
+            with ControlPad() as pad:
+                pad.set_indicators(_colori_fissi, commit=True, banco=banco)
+            _log(f"   indicatori riportati ai fissi {_colori_fissi}")
+            return
+        except Exception as exc:
+            ultimo = exc
+            time.sleep(0.08)
+    _log(f"!! ripristino indicatori fallito dopo 5 tentativi: {ultimo}")
 
 
 def _ferma_animazione():
