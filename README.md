@@ -1,71 +1,96 @@
-# ControlPad
+# ControlPAD Controller for macOS
 
-Controllo completo del **Cooler Master ControlPad** (`VID 0x2516` / `PID 0x007B`,
-variante Cherry) su macOS, dove il software ufficiale non esiste: è solo per
-Windows. Il protocollo USB è stato ricavato per reverse engineering dalle
-catture in `ControlPAD - CATTURA/captures/` e verificato inviando i comandi al
-dispositivo vero.
+[![CI](https://github.com/NsPowEr/ControlPAD-Controller/actions/workflows/ci.yml/badge.svg)](https://github.com/NsPowEr/ControlPAD-Controller/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform: macOS](https://img.shields.io/badge/Platform-macOS-black?logo=apple)](https://apple.com)
+[![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange.svg?logo=swift)](https://swift.org)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg?logo=python)](https://python.org)
 
-## Le quattro cartelle
+Controllo nativo completo per il tastierino meccanico/analogico **Cooler Master ControlPad** (`VID 0x2516` / `PID 0x007B`, variante Cherry MX) su **macOS**.
 
-| Cartella | Cosa contiene |
+Il software ufficiale Cooler Master (*MasterPlus+*) è disponibile unicamente per Windows ed è spesso soggetto a crash, pesantezza e tempi di configurazione lenti. Questo progetto nasce per colmare questa mancanza: libera il potenziale dell'hardware su Mac offrendo un'interfaccia nativa **SwiftUI (Liquid Glass)** reattiva e veloce, supportata da un motore di comunicazione USB HID a basso livello sviluppato interamente tramite **reverse engineering** del protocollo.
+
+---
+
+## 🌟 Caratteristiche Principali
+
+- **⚡ Un'esperienza nativa e istantanea per macOS**: Interfaccia moderna con estetica *Liquid Glass*, supporto dark/light, localizzazione completa (Italiano & Inglese) e zero dipendenze pesanti.
+- **🎯 Versatilità Professionale Multiruolo**:
+  - **Video & Audio Editing**: Scrubbing e controlli di precisione con le due rotelle per DaVinci Resolve, Final Cut Pro, Logic Pro, Premiere.
+  - **Modellazione 3D & Design**: Scorciatoie rapide e macro per Blender, Photoshop, CAD.
+  - **Sviluppo & Produttività**: Snippet, navigazione nel terminale, gestione finestre, comandi Git a portata di un solo tasto.
+  - **Gaming su Mac**: Mappature personalizzate e layout dedicati.
+- **💾 Persistenza nel Firmware Hardware (On-Board Flash)**:
+  - **Macro, rimappature dei 24 tasti, tasti funzione e selettori di profilo** vengono scritti direttamente nella memoria flash del pad. Una volta configurati, funzionano su qualsiasi computer senza bisogno di software attivo in background.
+- **🌈 Gestione Completa dell'Illuminazione RGB**:
+  - 14 modalità di effetto (statico, onda arcobaleno, reattivi al tocco a 2 colori come mirino, dissolvenza, neve, stelle, ciclo colore, ecc.).
+  - Mappatura cromatica per-tasto personalizzata.
+- **💡 Controllo dei 4 LED Indicatori**:
+  - Indirizzamento e animazioni frame-by-frame per i 4 LED superiori (lo stato sopravvive anche allo scollegamento del cavo USB).
+- **🛡️ Architettura Resiliente & Testata**:
+  - Oltre 130 test unitari automatizzati tra motore Python e interfaccia Swift.
+  - Salvataggio automatico del profilo bozza (`draft.json`) con backup resiliente per evitare perdite di dati.
+
+---
+
+## 📂 Struttura del Progetto
+
+| Cartella | Descrizione |
 |---|---|
-| `ControlPadEngine/` | **il codice**: driver, sessione, macro, effetti, e il bridge JSON che l'app usa come sottoprocesso |
-| `ControlPadGUI/` | l'app macOS in SwiftUI — quattro schede come l'app Windows, più Impostazioni |
-| `ControlPAD - CATTURA/` | le catture USB, il protocollo byte per byte, gli strumenti che l'hanno decodificato |
-| `Come_usare_manipolare_i_4_led/` | i quattro LED indicatori: primitive, diciassette effetti, misure |
+| [`ControlPadEngine/`](ControlPadEngine/) | **Il motore**: Driver USB HID, gestione sessione hardware, codificatori di macro ed effetti, bridge JSON IPC subprocess. |
+| [`ControlPadGUI/`](ControlPadGUI/) | **L'app macOS**: Interfaccia SwiftUI nativa (Liquid Glass) con schede Illuminazione, Mappatura Tasti, Macro, Profili e Impostazioni. |
+| [`ControlPAD - CATTURA/`](ControlPAD%20-%20CATTURA/) | **Reverse Engineering**: Catture pacchetti Wireshark `.pcapng`, specifiche dettagliate del protocollo byte per byte in [`PROTOCOL.md`](ControlPAD%20-%20CATTURA/PROTOCOL.md). |
+| [`Come_usare_manipolare_i_4_led/`](Come_usare_manipolare_i_4_led/) | **LED Indicatori**: Primitive di controllo, sequenze di animazione ed esperimenti di persistenza. |
 
-La libreria vive in un posto solo. Fino ad agosto 2026 ne esisteva una copia
-dentro `ControlPAD - CATTURA/`, ed è rimasta indietro proprio sulla correzione
-che contava di più — motivo per cui adesso quella cartella non contiene moduli.
+---
 
-## Partire
+## 🚀 Primi Passi
+
+### Requisiti
+- **macOS 14+** (con supporto ottimale per macOS 26 Liquid Glass SDK).
+- **Python 3.11+** con libreria `hidapi`.
+
+### Installazione e Avvio Rapido
 
 ```bash
-pip3 install hidapi                       # l'unica dipendenza
+# 1. Clona il repository
+git clone https://github.com/NsPowEr/ControlPAD-Controller.git
+cd ControlPAD-Controller
 
-cd ControlPadEngine
-python3 -m unittest discover -s tests     # senza pad collegato
-python3 -c "import hid; print(hid.enumerate(0x2516, 0x007B) and 'pad visto')"
+# 2. Installa l'unica dipendenza Python
+pip3 install hidapi
 
-cd ../ControlPadGUI
-swift run                                 # l'app, in sviluppo
-./scripts/make_app_bundle.sh              # l'app, impacchettata in ~/Applications
+# 3. Verifica i test del motore (anche senza pad collegato)
+python3 -m unittest discover ControlPadEngine/tests
+
+# 4. Avvia l'interfaccia grafica SwiftUI
+cd ControlPadGUI
+swift run
 ```
 
-## Da leggere prima di toccare il protocollo
+Per generare l'applicazione autonoma impacchettata in `~/Applications`:
+```bash
+cd ControlPadGUI
+./scripts/make_app_bundle.sh
+```
 
-* `ControlPAD - CATTURA/PROTOCOL.md` — il protocollo, e la sezione "Stato del
-  lavoro" con quello che è stato eseguito davvero e quello che è solo dedotto.
-* `ControlPAD - CATTURA/README.md` — le trappole, ognuna costata ore e nessuna
-  deducibile dai byte: le tre numerazioni degli stessi 24 tasti, la pausa di
-  flash dopo ogni macro, la coda degli ACK da drenare, i colori dell'app che
-  non sono mai valori puri.
-* `Come_usare_manipolare_i_4_led/ANIMAZIONI.md` — i quattro LED sopra il pad,
-  che sono l'unica superficie su cui si possano far scorrere fotogrammi.
+---
 
-Novità recenti:
-* 71 test unitari Python (incluso motore offline).
-* Sanitizzazione nomi macro (UTF-8, troncamento/padding a 12 byte).
-* Normalizzazione velocità su scala 1-10 per tutti i 14 effetti.
-* Commenti di fase del protocollo inline in `skeleton.py`.
-* Target di test Swift (`ControlPadGUITests`).
-* Pannello diagnostico in Impostazioni.
+## 🔬 Note sul Protocollo Hardware
 
-Regola generale del progetto: **un numero misurato dall'host non dimostra
-niente sul pad finché non lo si guarda.** Il device risponde ACK anche a quello
-che non esegue.
+Prima di modificare o estendere la logica di comunicazione, consulta la documentazione tecnica:
+- 📖 [**`ControlPAD - CATTURA/PROTOCOL.md`**](ControlPAD%20-%20CATTURA/PROTOCOL.md) — La specifica completa del protocollo USB (endpoint `0x04`/`0x83`, header `56 83`, tabella per-tasto per colonne, encoding delle macro in micro-eventi).
+- ⚠️ [**`ControlPAD - CATTURA/README.md`**](ControlPAD%20-%20CATTURA/README.md) — Le peculiarità dell'hardware scoperte durante l'analisi (le 3 diverse numerazioni dei 24 tasti, la pausa di scrittura flash, il drenaggio della coda ACK).
 
-## Cosa resta nel pad e cosa no
+---
 
-**Restano, per sempre**: macro, rimappature, funzioni speciali, assegnazioni di
-profilo. Scritte una volta, vivono nel firmware e funzionano su qualunque
-computer, senza software.
+## 🤝 Contribuire
 
-**Vanno riapplicati a ogni collegamento**: colori ed effetti. Non è un limite
-di questo progetto — non li memorizza nemmeno il software ufficiale, che tiene
-un servizio residente apposta per rimandarli. L'app fa lo stesso mentre è
-aperta.
+I contributi della community sono benvenuti! Consulta la [Guida ai Contributi](CONTRIBUTING.md) e il [Changelog](CHANGES.md) per conoscere le linee guida sullo sviluppo e lo storico delle versioni.
 
-**Eccezione**: i quattro LED indicatori sopravvivono allo scollegamento, quindi
-l'ultimo fotogramma scritto è quello con cui il pad si riaccende.
+---
+
+## 📜 Licenza
+
+Questo progetto è rilasciato sotto licenza [MIT](LICENSE).
+Tutti i marchi e i nomi commerciali (*Cooler Master*, *ControlPad*, *MasterPlus+*, *Aimpad*, *Cherry MX*) appartengono ai rispettivi proprietari.
