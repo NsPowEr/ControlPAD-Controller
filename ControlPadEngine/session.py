@@ -77,6 +77,13 @@ def _azione_predefinita(codice):
     0x1B, 0x06 e 0x19 lo battono. Non e deducibile dai byte e non e uniforme,
     quindi non ci si appoggia sopra.
 
+    Quel "ciclo dei colori" ha poi trovato il suo nome: era un **cambio di
+    profilo**, che porta con se la propria illuminazione. Su quei due tasti il
+    pad si portava dietro un passo profilo lasciato da una sessione Windows —
+    l'assegnazione non e per banco e sopravvive a tutto finche non la si
+    riscrive. La conclusione operativa non cambia: `00ff` non e un modo di
+    dire "torna com'eri".
+
     Un tasto che deve battere il proprio carattere se lo fa scrivere esplicito,
     che e la stessa forma della rimappatura gia verificata (`51 20 35 00 3e 00`
     per mandare il n.1 su F5): qui l'azione e semplicemente il codice del tasto
@@ -92,17 +99,60 @@ def _azione_predefinita(codice):
 
 # Le due funzioni "scorri i profili" non sono codici azione di `51 20`: non
 # esistono in quel campo, e cercarli nelle catture non da niente. Un tasto
-# diventa un tasto profilo **togliendolo dalla tabella `51 94`** — il suo slot
-# passa a `ff ff ff ff` — e nella keymap resta `00ff`. Verificato riproducendo
-# `profilo + e -.pcapng`: rimessi quegli slot a ff, i tasti cominciano a
-# scorrere i banchi con avvolgimento.
+# diventa un tasto passo con **due** scritture insieme:
 #
-# Questi due valori sono quindi **codici interni dell'app**, un modo di dire
+#   * il suo slot in `51 94` passa a `ff ff ff ff` — cioe il tasto perde il
+#     codice HID con cui la keymap lo indirizza;
+#   * nella keymap ci resta `00ff`.
+#
+# Il **verso** lo dice la tabella `51 90`, la stessa dei selettori: `0` al suo
+# indice significa *avanti*, l'identita significa *indietro*. Letto dalle
+# catture Windows, decodificando i report spontanei del pad — `43 01 00 00
+# <indice> c0` e una pressione, `52 00 00 00 <banco>` dice dove si e finiti:
+#
+#   * `profilo + e -.pcapng`: slot 4 (Ctrl) porta `0` in `51 90` e sale
+#     0→1→2…; slot 8 (z) porta l'identita e scende 1→0→23…;
+#   * `cattura funzioni interne - e +.pcapng`: slot 8 sale, slot 3 scende.
+#
+# Due conseguenze che non si vedono dai byte e che costano ore a chi le
+# ignora:
+#
+#   * **il firmware tiene un tasto per verso.** Nella prima cattura gli slot
+#     tolti da `51 94` sono tre (3, 4, 8) e il n.3 non fa niente: quattro
+#     pressioni, nessun cambio di banco. Vince l'ultimo in ordine di indice.
+#   * **l'assegnazione non e per banco.** La sessione della cattura sta nel
+#     solo banco 1, e i due tasti scorrono lo stesso su tutti e ventiquattro.
+#     Quindi resta li finche una sessione nuova non la riscrive — ed e per
+#     questo che il pad puo arrivare con un passo gia impostato che nessun
+#     profilo di questa app ha chiesto.
+#
+# I due valori qui sotto sono **codici interni dell'app**, un modo di dire
 # "questo tasto scorre i profili" lungo la stessa strada delle altre funzioni,
 # non byte che il dispositivo veda mai.
 PROFILO_AVANTI = 0x0111
 PROFILO_INDIETRO = 0x0112
 PASSO_PROFILO = {PROFILO_AVANTI: "avanti", PROFILO_INDIETRO: "indietro"}
+
+
+def _un_tasto_per_verso(passo):
+    """Il sottoinsieme di `passo` che il pad eseguira davvero.
+
+    Un verso, un tasto: assegnandone due il firmware ne onora uno solo e
+    l'altro resta muto — non torna a battere il suo carattere, proprio non fa
+    niente. Vince quello di indice piu alto, come nella cattura con tre slot
+    tolti da `51 94`, dove il n.3 perdeva contro il n.8.
+
+    Chi perde viene tolto da qui, cosi la sessione non gli leva il codice HID
+    e il tasto continua a battere la sua lettera: un tasto che scrive e un
+    esito peggiore di quello chiesto, ma migliore di un tasto morto.
+    """
+    vincitori = {}
+    for tasto, verso in passo.items():
+        riga, colonna = posizione(tasto)
+        indice = indice_colonne(riga, colonna)
+        if verso not in vincitori or indice > vincitori[verso][0]:
+            vincitori[verso] = (indice, tasto)
+    return {tasto: verso for verso, (_, tasto) in vincitori.items()}
 
 
 def _senza_tasti(payload, indici):
@@ -327,24 +377,26 @@ def _tabella_profili(profile_keys, indici_passo=None):
 
     Ai tasti che *scorrono* i profili — quelli tolti da `51 94` — serve anche
     una voce qui, ed e l'unico posto in cui i due versi si distinguono: chi
-    **torna indietro** porta `0` al suo indice, chi **avanza** conserva
+    **avanza** porta `0` al suo indice, chi **torna indietro** conserva
     l'identita.
 
-    Il verso e stato ricavato dall'uso, non dalla cattura, e la differenza
-    merita di essere scritta. Nella cattura il tasto con `0` incrementava,
-    quindi la prima versione di questa funzione metteva `0` sull'"avanti"; ma
-    assegnando dall'app `z` ad avanti e `Ctrl` a indietro, sul dispositivo si
-    comportavano al contrario. Fra le due, l'osservazione diretta di
-    un'assegnazione fatta *da noi* vale piu della lettura di una cattura in
-    cui quel byte poteva essere li per un altro motivo.
+    Il verso viene dalle catture Windows, incrociando le pressioni che il pad
+    annuncia da solo (`43 01 00 00 <indice> c0`) col banco che ne risulta
+    (`52 00 00 00 <banco>`):
 
-    Resta un'ipotesi alternativa non ancora esclusa: che a decidere il verso
-    non sia questo byte ma la **posizione** dei due tasti — l'indice piu basso
-    avanti, il piu alto indietro. Le due regole danno lo stesso risultato su
-    tutti i casi provati finora, perche in ognuno il tasto "avanti" aveva
-    anche l'indice minore. Le separa un'assegnazione in cui l'"avanti" stia
-    *dopo* l'"indietro": se in quel caso i versi risultassero scambiati, a
-    comandare e la posizione e questa tabella non c'entra.
+    | cattura | indice | `51 90` | banco |
+    |---|---|---|---|
+    | `profilo + e -` | 4 (Ctrl) | `0` | 0→1→2… **avanti** |
+    | `profilo + e -` | 8 (z) | identita | 1→0→23… **indietro** |
+    | `funzioni interne - e +` | 8 (z) | `0` | 21→22→23→0 **avanti** |
+    | `funzioni interne - e +` | 3 (Shift) | identita | 0→23→22 **indietro** |
+
+    Per un po' qui c'e stato scritto il contrario, sulla scorta di una prova
+    fatta con questa app: assegnati `z` ad avanti e `Ctrl` a indietro, sul
+    pad si comportavano scambiati. Il motivo era un altro, e lo si vede solo
+    ora: il passo **non e per banco** e resta scritto nel pad, quindi quella
+    prova stava leggendo l'assegnazione lasciata li dalla cattura Windows,
+    non la propria.
     """
     tabella = bytearray(range(24))
     for indice_led, profilo in (profile_keys or {}).items():
@@ -408,11 +460,6 @@ def costruisci(macros=(), remaps=None, lighting=None, profile_keys=None,
             passo[tasto] = PASSO_PROFILO[azione]
             del remaps[tasto]
 
-    indici_passo = {}
-    for tasto, verso in passo.items():
-        riga, colonna = posizione(tasto)
-        indici_passo[indice_colonne(riga, colonna)] = verso
-
     # Un tasto con una macro non deve battere anche il suo carattere: nelle
     # catture l'app ufficiale gli scrive azione 0x0000 nella keymap, ed e
     # esattamente sui quattro tasti che li portavano una macro.
@@ -425,8 +472,19 @@ def costruisci(macros=(), remaps=None, lighting=None, profile_keys=None,
     for indice in (profile_keys or {}):
         remaps[tasto_da_indice_colonne(indice)] = FUNZIONI["seleziona_profilo"]
 
+    # Il firmware tiene **un tasto per verso**: gli altri restano muti, e un
+    # tasto muto non e quello che ha chiesto chi lo ha assegnato. Meglio che
+    # torni a battere il suo carattere, che almeno si vede.
+    passo = _un_tasto_per_verso(passo)
+
+    indici_passo = {}
+    for tasto, verso in passo.items():
+        riga, colonna = posizione(tasto)
+        indici_passo[indice_colonne(riga, colonna)] = verso
+
     fuori = []
     macro_emesse = False
+    tabella_emessa = False
     flusso = _con_illuminazione(SESSIONE, lighting) if lighting else None
     # `slot_luce`, non `slot`: il ciclo delle macro piu sotto scorre anche lui
     # su una variabile che si chiamerebbe cosi, e sovrascrivendola mandava al
@@ -466,11 +524,18 @@ def costruisci(macros=(), remaps=None, lighting=None, profile_keys=None,
                     fuori.append((p, FLASH_SETTLE))
             continue
 
-        if (profile_keys or indici_passo) and payload[:2] == b"\x51\x94" \
-                and payload[2] == 0:
+        # La tabella dei profili va scritta **prima del blocco keymap**, dove
+        # la mette l'app ufficiale: nella cattura la sequenza e
+        # `51 18 … 41 80 | 52 90 51 90 | 51 20 51 80 …`. Scriverla dopo — cioe
+        # subito prima di `51 94`, dove stava — significa che il firmware
+        # decide il ruolo del tasto mentre riceve il suo `51 20` e legge la
+        # tabella **vecchia**: i tasti passo nuovi restano muti e battono il
+        # loro carattere, e a funzionare sono solo quelli che c'erano gia.
+        if (profile_keys or indici_passo) and payload[:2] == b"\x51\x20" \
+                and not tabella_emessa:
             fuori.append((bytes.fromhex("52900000"), STEP))
             fuori.append((_tabella_profili(profile_keys, indici_passo), STEP))
-            profile_keys = None               # una volta sola
+            tabella_emessa = True
 
         if payload[:2] == b"\x51\x94" and indici_passo:
             payload = _senza_tasti(payload, set(indici_passo))

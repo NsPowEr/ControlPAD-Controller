@@ -69,6 +69,17 @@ enum KeyLayout {
     /// così che compare in tutte le catture.
     static let effectCycleKey: UInt8 = 0xC0
 
+    /// I tasti che di fabbrica **manovrano il pad** invece di scrivere un
+    /// carattere. Ce n'è uno solo, il n.22: chi lo rimappa perde una funzione
+    /// del dispositivo, non una lettera, e nella griglia si vede.
+    ///
+    /// Il n.17 è stato qui dentro per poco, sulla scorta di un pad che
+    /// scorreva i profili all'indietro quando lo si premeva. Non era di
+    /// fabbrica: il passo profilo **non è per banco** e resta scritto nel
+    /// dispositivo finché una sessione non lo riscrive, quindi quello era il
+    /// residuo di una sessione del software Windows.
+    static let padFunctionKeys: Set<UInt8> = [effectCycleKey]
+
     /// Cosa fa un tasto a cui non si è assegnato niente.
     ///
     /// **Non** `0x00FF`. Quel codice dice al firmware "nessuna assegnazione", e

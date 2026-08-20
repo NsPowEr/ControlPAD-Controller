@@ -1,74 +1,75 @@
 # ControlPAD Controller for macOS
 
 [![CI](https://github.com/NsPowEr/ControlPAD-Controller/actions/workflows/ci.yml/badge.svg)](https://github.com/NsPowEr/ControlPAD-Controller/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/NsPowEr/ControlPAD-Controller)](https://github.com/NsPowEr/ControlPAD-Controller/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: macOS](https://img.shields.io/badge/Platform-macOS-black?logo=apple)](https://apple.com)
 [![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange.svg?logo=swift)](https://swift.org)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg?logo=python)](https://python.org)
 
-Controllo nativo completo per il tastierino meccanico/analogico **Cooler Master ControlPad** (`VID 0x2516` / `PID 0x007B`, variante Cherry MX) su **macOS**.
+Complete, native control software for the **Cooler Master ControlPad** (`VID 0x2516` / `PID 0x007B`, Cherry MX switch variant) on **macOS**.
 
-Il software ufficiale Cooler Master (*MasterPlus+*) è disponibile unicamente per Windows ed è spesso soggetto a crash, pesantezza e tempi di configurazione lenti. Questo progetto nasce per colmare questa mancanza: libera il potenziale dell'hardware su Mac offrendo un'interfaccia nativa **SwiftUI (Liquid Glass)** reattiva e veloce, supportata da un motore di comunicazione USB HID a basso livello sviluppato interamente tramite **reverse engineering** del protocollo.
-
----
-
-## 🌟 Caratteristiche Principali
-
-- **⚡ Un'esperienza nativa e istantanea per macOS**: Interfaccia moderna con estetica *Liquid Glass*, supporto dark/light, localizzazione completa (Italiano & Inglese) e zero dipendenze pesanti.
-- **🎯 Versatilità Professionale Multiruolo**:
-  - **Video & Audio Editing**: Scrubbing e controlli di precisione con le due rotelle per DaVinci Resolve, Final Cut Pro, Logic Pro, Premiere.
-  - **Modellazione 3D & Design**: Scorciatoie rapide e macro per Blender, Photoshop, CAD.
-  - **Sviluppo & Produttività**: Snippet, navigazione nel terminale, gestione finestre, comandi Git a portata di un solo tasto.
-  - **Gaming su Mac**: Mappature personalizzate e layout dedicati.
-- **💾 Persistenza nel Firmware Hardware (On-Board Flash)**:
-  - **Macro, rimappature dei 24 tasti, tasti funzione e selettori di profilo** vengono scritti direttamente nella memoria flash del pad. Una volta configurati, funzionano su qualsiasi computer senza bisogno di software attivo in background.
-- **🌈 Gestione Completa dell'Illuminazione RGB**:
-  - 14 modalità di effetto (statico, onda arcobaleno, reattivi al tocco a 2 colori come mirino, dissolvenza, neve, stelle, ciclo colore, ecc.).
-  - Mappatura cromatica per-tasto personalizzata.
-- **💡 Controllo dei 4 LED Indicatori**:
-  - Indirizzamento e animazioni frame-by-frame per i 4 LED superiori (lo stato sopravvive anche allo scollegamento del cavo USB).
-- **🛡️ Architettura Resiliente & Testata**:
-  - Oltre 130 test unitari automatizzati tra motore Python e interfaccia Swift.
-  - Salvataggio automatico del profilo bozza (`draft.json`) con backup resiliente per evitare perdite di dati.
+The official Cooler Master software (*MasterPlus+*) is strictly Windows-only, resource-intensive, and prone to crashes. This project liberates the hardware on Mac, providing an ultra-responsive native **SwiftUI (Liquid Glass)** user interface backed by a reverse-engineered low-level USB HID communication engine.
 
 ---
 
-## 📂 Struttura del Progetto
+## 🌟 Key Features
 
-| Cartella | Descrizione |
+- **⚡ Native & Fluid macOS Experience**: Built with modern SwiftUI and Apple's *Liquid Glass* design system, full dark/light mode support, runtime multi-language switching (English & Italian), and zero heavy runtime dependencies.
+- **🎯 Multi-Disciplinary Professional Versatility**:
+  - **Video & Audio Post-Production**: Precise frame-by-frame scrubbing and timeline navigation using the dual precision dials for DaVinci Resolve, Final Cut Pro, Logic Pro, and Premiere.
+  - **3D Modeling & Graphic Design**: Rapid shortcut triggering and custom macros for Blender, Photoshop, Illustrator, and CAD.
+  - **Software Engineering & Terminal Power Users**: One-touch Git commands, terminal navigation, snippet insertion, and window tiling shortcuts.
+  - **macOS Gaming**: Custom input mapping with ultra-low latency response.
+- **💾 Firmware Flash Persistence (On-Board Memory)**:
+  - **Macros, 24-key remappings, special functions, and profile selections** are written directly to the device's hardware flash memory. Once configured, they work autonomously on any computer without background software.
+- **🌈 Complete RGB Lighting Control**:
+  - 14 lighting effect modes (Static, Rainbow Wave, Crosshair, Reactive Fade, Custom Per-Key, Stars, Snow, Color Cycle, Blink, Reactive Punch, Circular Spectrum, Reactive Tornado, Water Ripple, Off).
+  - Custom per-key RGB coloring and reaction tint customization.
+- **💡 4 Profile Indicator LEDs Animation Engine**:
+  - Full addressability and frame-by-frame live animation engine for the top 4 status LEDs (the last written state persists even across USB disconnects).
+- **🛡️ Robust & Resilient Architecture**:
+  - Over 130 automated unit tests across the Python engine and Swift GUI.
+  - Automatic draft state preservation (`draft.json`) with `.bak` safety fallbacks to prevent configuration loss.
+
+---
+
+## 📂 Project Architecture
+
+| Directory | Description |
 |---|---|
-| [`ControlPadEngine/`](ControlPadEngine/) | **Il motore**: Driver USB HID, gestione sessione hardware, codificatori di macro ed effetti, bridge JSON IPC subprocess. |
-| [`ControlPadGUI/`](ControlPadGUI/) | **L'app macOS**: Interfaccia SwiftUI nativa (Liquid Glass) con schede Illuminazione, Mappatura Tasti, Macro, Profili e Impostazioni. |
-| [`ControlPAD - CATTURA/`](ControlPAD%20-%20CATTURA/) | **Reverse Engineering**: Catture pacchetti Wireshark `.pcapng`, specifiche dettagliate del protocollo byte per byte in [`PROTOCOL.md`](ControlPAD%20-%20CATTURA/PROTOCOL.md). |
-| [`Come_usare_manipolare_i_4_led/`](Come_usare_manipolare_i_4_led/) | **LED Indicatori**: Primitive di controllo, sequenze di animazione ed esperimenti di persistenza. |
+| [`ControlPadEngine/`](ControlPadEngine/) | **The Engine**: Low-level USB HID driver, hardware session manager, macro and lighting effect encoders, JSON IPC bridge subprocess. |
+| [`ControlPadGUI/`](ControlPadGUI/) | **macOS App**: Native SwiftUI interface (Liquid Glass) with Lighting, Key Mapping, Macros, Profiles, and Settings tabs. |
+| [`ControlPAD - CATTURA/`](ControlPAD%20-%20CATTURA/) | **Reverse Engineering**: Raw Wireshark `.pcapng` USB packet captures and comprehensive protocol specifications in [`PROTOCOL.md`](ControlPAD%20-%20CATTURA/PROTOCOL.md). |
+| [`Come_usare_manipolare_i_4_led/`](Come_usare_manipolare_i_4_led/) | **LED Manipulation**: Primitive animation algorithms, time/space transforms, and persistence tests for the 4 top LEDs. |
 
 ---
 
-## 🚀 Primi Passi
+## 🚀 Quick Start
 
-### Requisiti
-- **macOS 14+** (con supporto ottimale per macOS 26 Liquid Glass SDK).
-- **Python 3.11+** con libreria `hidapi`.
+### Prerequisites
+- **macOS 14+** (with optimal support for macOS 26 Liquid Glass SDK).
+- **Python 3.11+** with the `hidapi` package.
 
-### Installazione e Avvio Rapido
+### Installation & Launch
 
 ```bash
-# 1. Clona il repository
+# 1. Clone the repository
 git clone https://github.com/NsPowEr/ControlPAD-Controller.git
 cd ControlPAD-Controller
 
-# 2. Installa l'unica dipendenza Python
+# 2. Install the single Python dependency
 pip3 install hidapi
 
-# 3. Verifica i test del motore (anche senza pad collegato)
+# 3. Verify engine tests (runs offline without hardware connected)
 python3 -m unittest discover ControlPadEngine/tests
 
-# 4. Avvia l'interfaccia grafica SwiftUI
+# 4. Launch the SwiftUI application in development mode
 cd ControlPadGUI
 swift run
 ```
 
-Per generare l'applicazione autonoma impacchettata in `~/Applications`:
+To build and package a standalone macOS `.app` bundle into `~/Applications`:
 ```bash
 cd ControlPadGUI
 ./scripts/make_app_bundle.sh
@@ -76,21 +77,21 @@ cd ControlPadGUI
 
 ---
 
-## 🔬 Note sul Protocollo Hardware
+## 🔬 Hardware Protocol Insights
 
-Prima di modificare o estendere la logica di comunicazione, consulta la documentazione tecnica:
-- 📖 [**`ControlPAD - CATTURA/PROTOCOL.md`**](ControlPAD%20-%20CATTURA/PROTOCOL.md) — La specifica completa del protocollo USB (endpoint `0x04`/`0x83`, header `56 83`, tabella per-tasto per colonne, encoding delle macro in micro-eventi).
-- ⚠️ [**`ControlPAD - CATTURA/README.md`**](ControlPAD%20-%20CATTURA/README.md) — Le peculiarità dell'hardware scoperte durante l'analisi (le 3 diverse numerazioni dei 24 tasti, la pausa di scrittura flash, il drenaggio della coda ACK).
-
----
-
-## 🤝 Contribuire
-
-I contributi della community sono benvenuti! Consulta la [Guida ai Contributi](CONTRIBUTING.md) e il [Changelog](CHANGES.md) per conoscere le linee guida sullo sviluppo e lo storico delle versioni.
+Before extending communication logic, review the reverse engineering specifications:
+- 📖 [**`ControlPAD - CATTURA/PROTOCOL.md`**](ControlPAD%20-%20CATTURA/PROTOCOL.md) — Byte-by-byte breakdown of USB HID packets (`0x04` OUT / `0x83` IN endpoints, `56 83` color headers, column-major matrix indexing, macro micro-event structure).
+- ⚠️ [**`ControlPAD - CATTURA/README.md`**](ControlPAD%20-%20CATTURA/README.md) — Hardware quirks uncovered during capture analysis (the 3 distinct numbering schemes for the 24 keys, flash write delays, ACK queue draining rules).
 
 ---
 
-## 📜 Licenza
+## 🤝 Contributing
 
-Questo progetto è rilasciato sotto licenza [MIT](LICENSE).
-Tutti i marchi e i nomi commerciali (*Cooler Master*, *ControlPad*, *MasterPlus+*, *Aimpad*, *Cherry MX*) appartengono ai rispettivi proprietari.
+Contributions from the community are warmly welcomed! Please check [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and [CHANGES.md](CHANGES.md) for version history.
+
+---
+
+## 📜 License
+
+This project is licensed under the [MIT License](LICENSE).  
+All product and brand names (*Cooler Master*, *ControlPad*, *MasterPlus+*, *Aimpad*, *Cherry MX*) are trademarks of their respective owners.

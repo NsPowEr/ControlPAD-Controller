@@ -64,6 +64,9 @@ class KeymapSenzaEredita(unittest.TestCase):
                              f"tasto 0x{codice:02x} non batte se stesso")
 
     def test_nessun_tasto_esce_a_0x00ff(self):
+        # `00ff` nella keymap e la forma di un tasto passo, e una sessione
+        # senza tasti passo non deve lasciarne nessuno: e cosi che cancella
+        # quello che il pad si porta dietro da chi ha scritto prima.
         km = keymap(session.costruisci())
         self.assertNotIn(NESSUNA, km.values())
 

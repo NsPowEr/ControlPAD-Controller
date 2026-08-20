@@ -1,111 +1,66 @@
-# ControlPad — app macOS
+# ControlPad — macOS App
 
-App nativa SwiftUI (Liquid Glass, macOS 26+) per il Cooler Master ControlPad,
-con le stesse quattro schede dell'app Windows ufficiale: Illuminazione,
-Mappatura tasti, Macro, Profili — più una sottopagina Impostazioni con
-selezione lingua a runtime e un pannello diagnostico.
+Native SwiftUI application (Liquid Glass, macOS 26+) for the Cooler Master ControlPad, featuring the same four core tabs as the official Windows software: Lighting, Key Mapping, Macros, Profiles — plus a Settings panel with runtime language selection and diagnostics.
 
-Il protocollo USB non è riscritto qui: questa app pilota il pad lanciando
-`../ControlPadEngine/bridge.py` come sottoprocesso e parlandoci in JSON su
-stdin/stdout. La logica del protocollo (handshake, timing, formato macro)
-resta tutta in `ControlPadEngine/`, verificata sul dispositivo reale — vedi
-`../ControlPAD - CATTURA/PROTOCOL.md` per i dettagli byte per byte.
+The USB protocol is decoupled from the UI: this app drives the device by spawning `../ControlPadEngine/bridge.py` as a child subprocess and communicating via JSON over stdin/stdout. The core hardware communication logic (handshake, timings, macro encoding, ACK queue draining) lives cleanly in `ControlPadEngine/`, verified on physical hardware — see `../ControlPAD - CATTURA/PROTOCOL.md` for byte-level specifications.
 
-## Eseguire in sviluppo
+---
+
+## Running in Development
 
 ```bash
 cd ControlPadGUI
 swift run
 ```
 
-Serve `ControlPadEngine/` accanto a questa cartella (nel repo lo è già) e
-Python 3 con `hidapi` installato — vedi `../ControlPadEngine/requirements.txt`:
+Requires `ControlPadEngine/` alongside this directory (as organized in the repository) and Python 3 with `hidapi` installed — see `../ControlPadEngine/requirements.txt`:
 
 ```bash
 pip3 install hidapi
 ```
 
-## Pacchettizzare come app
+---
+
+## Packaging as an Application Bundle
 
 ```bash
 ./scripts/make_app_bundle.sh
 open dist/ControlPad.app
 ```
 
-Lo script compila in release e crea `dist/ControlPad.app` con l'eseguibile,
-il bundle risorse (localizzazioni) e una copia di `ControlPadEngine/`
-dentro `Contents/Resources/`, così l'app gira senza bisogno dei sorgenti a
-fianco. Firma ad-hoc inclusa, solo per uso locale — non è notarizzata.
+The script compiles the package in release configuration and creates `dist/ControlPad.app` with the executable, bundled localized resources, and an embedded copy of `ControlPadEngine/` inside `Contents/Resources/`, enabling standalone execution. Ad-hoc code signing is included for local use.
 
-**Nota PATH**: un'app lanciata da Finder eredita il PATH minimale di
-launchd, non quello della shell interattiva. `PythonBridge` risolve il
-`python3` giusto chiedendolo alla shell di login dell'utente (dove
-`pip3 install hidapi` è stato eseguito), non usando `env python3` diretto —
-altrimenti finirebbe sul Python di sistema, senza hidapi.
+**PATH Handling Note**: An application launched via Finder inherits launchd's minimal PATH rather than interactive shell environment variables. `PythonBridge` resolves the correct `python3` binary from the user's login shell (where `pip3 install hidapi` was executed) rather than relying on `/usr/bin/env python3`.
 
-## Struttura
+---
 
-Vedi `Sources/ControlPadGUI/`: `Bridge/` (trasporto JSON verso il motore),
-`Models/` (layout tasti, effetti, funzioni speciali, preset), `Views/`
-(le quattro schede + Impostazioni + componenti condivisi), `Localization.swift`
-(cambio lingua a runtime — `L()` invece della risoluzione automatica di
-SwiftUI, che su un eseguibile SPM non basterebbe).
+## Architecture & Layout
 
-## Come sono fatte le schede
+See `Sources/ControlPadGUI/`:
+- `Bridge/`: JSON IPC communication with the Python engine.
+- `Models/`: Key layout models, lighting effect definitions, special functions, preset store.
+- `Views/`: The 4 main feature tabs, Settings view, and shared components (Liquid Glass tab bar, key grids, bank selectors).
+- `Localization.swift`: Dynamic runtime locale switcher supporting English (`en`) and Italian (`it`).
 
-**Illuminazione** — tutte e 14 le modalità, nessuna bloccata. Le sei reattive
-al tocco hanno **due colori**, di fondo e di reazione; i due pallini di fianco
-al nome dicono a colpo d'occhio quali sono. Ciclo colore ignora il colore
-(scorre la ruota da solo) e Spegni non ne usa: l'interfaccia lo dice invece di
-mostrare comandi che non fanno niente.
+---
 
-**Mappatura tasti** — il pad in alto con i numeri **1–24**, gli stessi
-serigrafati sull'hardware, e sotto una **tastiera intera** su cui scegliere il
-tasto dove ci si aspetta di trovarlo. Le funzioni interne stanno nell'altra
-linguetta, in griglia e con un'icona ciascuna.
+## Feature Overview
 
-**Macro** — si **registrano battendo davvero i tasti**: pressioni, rilasci e
-pause reali finiscono nella lista, poi ogni ritardo si ritocca a mano. Non c'è
-limite di lunghezza (vedi sotto).
+- **Lighting**: All 14 lighting modes unlocked. The 6 reactive modes support dual color selectors (base tint and reactive pulse). Custom mode allows visual per-key RGB coloring.
+- **Key Mapping**: Visual 5x5 pad layout mirroring hardware keys **1–24**, accompanied by a full keyboard picker and dedicated media/lighting/profile function selectors.
+- **Macros**: Interactive live recording capturing real keydown/keyup events and precise millisecond intervals, with manual timing adjustments.
+- **Profiles**: Host-side presets saved in `~/Library/Application Support/ControlPad/presets.json` alongside hardware bank selectors for the device's 24 internal on-board memory banks.
 
-**Profili** — preset salvati lato host in
-`~/Library/Application Support/ControlPad/`, non banchi separati sul
-dispositivo: nessuna cattura ha mai mostrato un comando per scriverne uno
-specifico. Da non confondere con i **banchi del device**, che esistono e che
-un tasto può selezionare: quella scelta sta in Mappatura tasti, accanto alla
-funzione "Seleziona profilo", perché è una cosa che il pad fa da solo anche
-con l'app chiusa.
+---
 
-## Limiti noti
+## Testing
 
-- **Registrazione macro**: cattura solo mentre la finestra dell'app è in primo
-  piano (`NSEvent.addLocalMonitorForEvents`). È una scelta: un tap globale
-  registrerebbe anche fuori dall'app, ma pretenderebbe il permesso
-  Accessibilità.
-- **Lunghezza macro**: verificata sul dispositivo fino a 49 eventi. Oltre
-  l'app avvisa ma non blocca, perché nessuno ha ancora provato — il vecchio
-  tetto di 15 eventi era un errore, nato da una sezione obsoleta di
-  `PROTOCOL.md`.
-- **Nome macro** oltre 12 byte, caratteri non codificabili, macro vuota: il
-  bottone "Scrivi su dispositivo" si disabilita davvero finché non correggi.
-- **Velocità degli effetti reattivi**: normalizzata su una scala 1-10 (il byte all'offset 36 è stato identificato e mappato per tutti gli effetti).
-- **Macro e rimappatura sullo stesso tasto**: permesse ma segnalate, il
-  comportamento del dispositivo in quel caso non compare in nessuna cattura.
-- **Riassegnazione delle rotelle**: la scheda la permette e lo dice, ma
-  nessuna cattura mostra una rotella riprogrammata — di fabbrica lo sono già,
-  e questo si vede. Va verificata dopo la scrittura.
-
-## Cosa gira senza il pad collegato
-
-Il motore ha un banco di prova che non tocca l'hardware — sessione, keymap,
-slot di illuminazione, codifica delle macro, comandi delle modalità e regola
-degli ACK:
-
+Engine tests (runs offline without device):
 ```bash
 cd ../ControlPadEngine && python3 -m unittest discover -s tests
 ```
 
-Swift test (Package.swift test target):
+Swift UI and model tests:
 ```bash
 cd ControlPadGUI && swift test
 ```

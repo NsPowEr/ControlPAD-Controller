@@ -922,13 +922,23 @@ class TastiProfiloTest(unittest.TestCase):
                                           self.session.PROFILO_INDIETRO))
 
     def test_i_due_versi_si_distinguono_nella_tabella_51_90(self):
-        # Verso ricavato dall'uso: chi torna indietro porta 0, chi avanza
-        # conserva l'identita. Vedi la nota in session._tabella_profili.
+        # Chi avanza porta 0, chi torna indietro conserva l'identita: e la
+        # forma delle due catture Windows. Vedi session._tabella_profili.
         r = self._reports(remaps={self.ctrl: self.session.PROFILO_AVANTI,
                                   self.z: self.session.PROFILO_INDIETRO})
         tab = next(p[4:28] for p in r if p[:2] == b"\x51\x90")
         self.assertEqual(tab[4], 4, "il tasto 'avanti' conserva l'identita")
         self.assertEqual(tab[8], 0, "quello 'indietro' porta 0 al suo indice")
+
+    def test_un_verso_un_tasto_solo(self):
+        # Assegnandone due, il firmware ne onora uno: quello di indice piu
+        # alto. L'altro non deve restare muto — deve tornare a battere la sua
+        # lettera, cioe non uscire da 51 94.
+        r = self._reports(remaps={0xE1: self.session.PROFILO_INDIETRO,   # idx 3
+                                  self.z: self.session.PROFILO_INDIETRO})  # idx 8
+        self.assertIsNotNone(self._slot_94(r, 3), "il perdente resta un tasto")
+        self.assertIsNone(self._slot_94(r, 8), "il vincitore e il piu alto")
+        self.assertEqual(self._keymap(r, 0xE1), 0xE1)
 
     def test_qualunque_tasto_puo_fare_da_selettore(self):
         # E il punto della funzione: non i due tasti della cattura, ma quelli
@@ -938,6 +948,9 @@ class TastiProfiloTest(unittest.TestCase):
             self.assertIsNone(self._slot_94(r, indice), f"tasto 0x{tasto:02x}")
 
     def test_senza_tasti_profilo_la_tabella_resta_intatta(self):
+        # Nessun tasto passo "di fabbrica": una sessione senza assegnazioni
+        # lascia `51 94` pieno, ed e proprio cosi che **cancella** il passo
+        # lasciato nel pad da chi ha scritto prima.
         r = self._reports()
         for indice in (0, 4, 8, 23):
             self.assertIsNotNone(self._slot_94(r, indice))
@@ -1066,3 +1079,62 @@ class RipristinoAllUscitaTest(unittest.TestCase):
 
         bridge.ControlPad = PadMorto
         bridge._ripristina_fissi()          # non deve sollevare
+
+
+class PassoNonPerBancoTest(unittest.TestCase):
+    """Il passo profilo resta nel pad finche una sessione non lo riscrive.
+
+    Non e per banco: nella cattura `profilo + e -.pcapng` la sessione sta nel
+    solo banco 1 e i due tasti scorrono su tutti e ventiquattro. Quindi
+    l'unico modo di **togliere** un passo lasciato da qualcun altro — il
+    software Windows, o un profilo precedente — e scrivere una sessione che
+    rimetta pieno `51 94`. Questi test guardano che sia sempre cosi, perche il
+    guasto sarebbe muto: il pad continuerebbe a cambiare profilo da solo e
+    nessun profilo dell'app direbbe perche.
+
+    Il solo comportamento davvero di fabbrica e il n.22 (`0xC0`), che fa
+    girare gli effetti: quello si, e va rimesso.
+    """
+
+    def setUp(self):
+        import session
+        self.session = session
+
+    def _slot_94_azzerati(self, reports):
+        fuori = []
+        for p in reports:
+            if p[:2] != b"\x51\x94":
+                continue
+            corpo = p[4:]
+            for o in range(0, len(corpo) - 3, 4):
+                indice = p[2] * 15 + o // 4
+                # Oltre il ventiquattresimo slot c'e solo riempimento: la
+                # tabella ne porta trenta e i tasti sono ventiquattro.
+                if indice < 24 and corpo[o:o + 4] == b"\xff\xff\xff\xff":
+                    fuori.append(indice)
+        return fuori
+
+    def _keymap(self, reports):
+        return {p[2]: (p[4] | p[5] << 8) for p in reports if p[:2] == b"\x51\x20"}
+
+    def test_una_sessione_vuota_cancella_il_passo(self):
+        r = [p for p, _ in self.session.costruisci()]
+        self.assertEqual(self._slot_94_azzerati(r), [],
+                         "nessuno slot tolto: il passo lasciato nel pad sparisce")
+        km = self._keymap(r)
+        self.assertEqual(km[0x1D], 0x1D, "il n.17 batte la sua lettera")
+        self.assertEqual(km[0xC0], self.session.FUNZIONI["effetto_avanti"])
+
+    def test_un_tasto_qualunque_puo_avanzare(self):
+        r = [p for p, _ in self.session.costruisci(
+            remaps={0x1D: self.session.PROFILO_AVANTI})]
+        self.assertIn(8, self._slot_94_azzerati(r))
+        self.assertEqual(self._keymap(r)[0x1D], self.session.NESSUNA_RIMAPPATURA)
+        tab = next(p[4:28] for p in r if p[:2] == b"\x51\x90")
+        self.assertEqual(tab[8], 8, "avanti conserva l'identita")
+
+    def test_una_macro_vince_sul_passo(self):
+        r = [p for p, _ in self.session.costruisci(
+            macros=[(0, 0x1D, b"\x00\xfc\xfe\xff", "M")])]
+        self.assertNotIn(8, self._slot_94_azzerati(r))
+        self.assertEqual(self._keymap(r)[0x1D], 0x0000, "muto, come ogni tasto con macro")

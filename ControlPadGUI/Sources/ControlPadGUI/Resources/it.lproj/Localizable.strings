@@ -200,3 +200,9 @@
 "mapping.scope.currentProfile" = "Profilo corrente: l\u2019assegnazione \u00e8 gi\u00e0 qui";
 "mapping.scope.thisProfileHint" = "Il tasto vale solo su questo profilo. La keymap del pad \u00e8 per profilo.";
 "mapping.scope.otherHint" = "Ogni profilo scelto viene riscritto sul dispositivo: qualche secondo ciascuno.";
+
+"mapping.resetAll" = "Ripristina tutti i profili";
+"mapping.resetAllHint" = "Riporta i 24 profili ai default del pad: rimappature, macro, effetti, LED e passo profilo. Il tasto viola resta una funzione del dispositivo.";
+"mapping.resetAll.confirm" = "Ripristinare tutti i 24 profili?";
+"mapping.resetAll.confirmBody" = "Azzera rimappature, macro, effetti di illuminazione e LED indicatori su tutti e 24 i profili, qui e sul dispositivo. Serve a riallineare il pad al software da una base nota. Non si può annullare.";
+"mapping.resetAll.doIt" = "Ripristina tutto";

@@ -130,10 +130,12 @@ final class AppModel {
     /// Copia l'assegnazione di un tasto su altri profili e la **scrive** lì.
     ///
     /// La keymap del dispositivo è per banco: un tasto rimappato su un profilo
-    /// non esiste sugli altri. Vale per le rimappature normali e, in modo più
-    /// visibile, per "Profilo +/−", che premuto su un profilo dove non è
-    /// assegnato non fa niente. Chi vuole lo stesso tasto ovunque deve
+    /// non esiste sugli altri. Chi vuole lo stesso tasto ovunque deve
     /// scriverlo ovunque, ed è quello che fa questo metodo.
+    ///
+    /// **"Profilo +/−" fa eccezione** e non ha bisogno di essere propagato: il
+    /// passo profilo non è per banco, sta nel dispositivo una volta sola e
+    /// vale su tutti e ventiquattro. Propagarlo non fa danno, ma non serve.
     ///
     /// Scrive **solo** i banchi indicati, uno per uno, e alla fine rimette il
     /// pad sul banco da cui si è partiti. Il banco corrente non è incluso
@@ -171,6 +173,49 @@ final class AppModel {
                 }
             }
             propagazione = (fatti + 1, bersagli.count)
+        }
+
+        presetStore.saveHardwareBanks(hardwareBanks)
+        if isConnected {
+            try? await bridge.setActiveProfile(bancoIniziale)
+            try? await applyLighting(draft.lighting)
+        }
+    }
+
+    /// Riporta **tutti i ventiquattro profili** alla configurazione di
+    /// fabbrica e li riscrive sul dispositivo.
+    ///
+    /// "Di fabbrica" non vuol dire vuoto: il n.22 fa girare gli effetti su ogni
+    /// profilo, ed è il motore a rimettercelo — vedi
+    /// `session._azione_predefinita`. Il ripristino toglie anche il passo
+    /// profilo, che il pad tiene fuori dai banchi e si porta dietro anche da
+    /// sessioni di altri software.
+    ///
+    /// Azzera **tutto** quello che distingue un profilo: rimappature, macro,
+    /// selettori, modalità di illuminazione, colori per tasto e i quattro LED
+    /// indicatori. Il punto è proprio quello: dopo, il pad e il software
+    /// dicono la stessa cosa su tutti e ventiquattro i profili, e si riparte
+    /// da una base nota invece che da residui di configurazioni precedenti —
+    /// che su questo dispositivo restano in flash finché non li si sovrascrive.
+    ///
+    /// Non si può annullare.
+    func ripristinaTuttiIProfili() async throws {
+        let bancoIniziale = activeBankIndex
+        propagazione = (0, 24)
+        defer { propagazione = nil }
+
+        for banco in 0..<24 {
+            // Preset(name:) porta con sé un LightingConfig() di default, e la
+            // scrittura di sessione manda sempre illuminazione e indicatori:
+            // basta non conservare i vecchi perché tornino tutti al punto di
+            // partenza, ciascuno nel proprio banco.
+            let pulito = Preset(name: "Profilo \(banco + 1)")
+            hardwareBanks[banco] = pulito
+            if banco == activeBankIndex { draft = pulito }
+            if isConnected {
+                _ = try await bridge.writeSession(preset: pulito, profile: banco)
+            }
+            propagazione = (banco + 1, 24)
         }
 
         presetStore.saveHardwareBanks(hardwareBanks)

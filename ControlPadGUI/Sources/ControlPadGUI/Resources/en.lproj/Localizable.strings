@@ -200,3 +200,9 @@
 "mapping.scope.currentProfile" = "Current profile: the assignment is already here";
 "mapping.scope.thisProfileHint" = "The key applies to this profile only. The pad keeps one keymap per profile.";
 "mapping.scope.otherHint" = "Each chosen profile is rewritten on the device: a few seconds each.";
+
+"mapping.resetAll" = "Reset all profiles";
+"mapping.resetAllHint" = "Returns all 24 profiles to the pad defaults: remaps, macros, effects, LEDs and profile step. The purple key stays a device function.";
+"mapping.resetAll.confirm" = "Reset all 24 profiles?";
+"mapping.resetAll.confirmBody" = "Clears remaps, macros, lighting effects and indicator LEDs on all 24 profiles, here and on the device. It realigns the pad with the software from a known base. This cannot be undone.";
+"mapping.resetAll.doIt" = "Reset everything";

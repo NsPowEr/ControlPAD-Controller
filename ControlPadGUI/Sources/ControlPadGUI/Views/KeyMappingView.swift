@@ -5,6 +5,7 @@ struct KeyMappingView: View {
     @State private var target: MapTarget = .pad(KeyLayout.allPositions.first!)
     @State private var source: Source = .keyboard
     @State private var scopeError: String?
+    @State private var confermaReset = false
 
     /// Cosa si sta rimappando: uno dei 24 tasti oppure uno dei quattro versi
     /// delle due rotelle. Nella keymap sono la stessa cosa — pseudo-tasti con
@@ -300,8 +301,43 @@ struct KeyMappingView: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.red)
                     }
+
+                    Divider()
+                    resetRow
                 }
             }
+        }
+    }
+
+    /// Riporta tutti i profili ai default del pad. Chiede conferma: cancella
+    /// rimappature e macro di tutti e ventiquattro, sul disco e sul
+    /// dispositivo, e non si torna indietro.
+    private var resetRow: some View {
+        HStack(spacing: 10) {
+            Button(role: .destructive) {
+                confermaReset = true
+            } label: {
+                Label(L("mapping.resetAll"), systemImage: "arrow.counterclockwise")
+            }
+            .disabled(app.propagazione != nil)
+
+            Text(L("mapping.resetAllHint"))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .confirmationDialog(L("mapping.resetAll.confirm"),
+                            isPresented: $confermaReset, titleVisibility: .visible) {
+            Button(L("mapping.resetAll.doIt"), role: .destructive) {
+                Task {
+                    scopeError = nil
+                    do { try await app.ripristinaTuttiIProfili() }
+                    catch { scopeError = error.localizedDescription }
+                }
+            }
+            Button(L("common.cancel"), role: .cancel) { }
+        } message: {
+            Text(L("mapping.resetAll.confirmBody"))
         }
     }
 
@@ -401,6 +437,19 @@ struct KeyMappingView: View {
 
     private func assign(_ action: RemapAction) {
         guard let key = selectedKey else { return }
+
+        // Profilo + e Profilo − vogliono **un tasto ciascuno**: il firmware ne
+        // onora uno solo per verso e l'altro resta muto — non torna a battere
+        // la sua lettera, proprio non fa niente. Meglio spostare l'assegnazione
+        // che lasciarne in giro una che non funzionerà.
+        if case .function(let f) = action, SpecialFunctions.profileStep.contains(f.code) {
+            for (altro, azione) in app.draft.remaps where altro != key {
+                if case .function(let g) = azione, g.code == f.code {
+                    app.draft.remaps.removeValue(forKey: altro)
+                }
+            }
+        }
+
         app.draft.remaps[key] = action
 
         // La voce nella tabella dei profili segue la funzione: compare quando
@@ -436,7 +485,14 @@ struct KeyMappingView: View {
         case .key: return .blue.opacity(0.55)
         case .function: return .green.opacity(0.55)
         case .disabled: return .black.opacity(0.55)
-        case .factoryDefault, nil: return .gray.opacity(0.28)
+        case .factoryDefault, nil:
+            // Il n.22, che di fabbrica fa girare gli effetti, non è "vuoto"
+            // come gli altri: rimapparlo toglie una funzione del dispositivo,
+            // non una lettera. Va distinto a colpo d'occhio anche quando
+            // nessuno lo ha toccato.
+            return KeyLayout.padFunctionKeys.contains(key)
+                ? .purple.opacity(0.42)
+                : .gray.opacity(0.28)
         }
     }
 }

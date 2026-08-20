@@ -85,13 +85,21 @@ enum SpecialFunctions {
     ///
     /// **Non sono codici azione del dispositivo.** Il campo azione di `51 20`
     /// non ha un codice per questo — cercarlo in tutte le catture non dà
-    /// niente. Un tasto diventa un tasto profilo venendo *tolto* dalla
-    /// tabella `51 94`, e nella keymap resta `00ff`. Questi due valori sono
-    /// quindi convenzioni interne all'app: viaggiano nel campo `remaps` come
-    /// le altre funzioni, e `session.py` li riconosce e li traduce nella
-    /// forma vera invece di scriverli sul dispositivo.
+    /// niente. Un tasto diventa un tasto passo venendo *tolto* dalla tabella
+    /// `51 94`, e nella keymap resta `00ff`; il **verso** lo dice la tabella
+    /// `51 90`, dove `0` significa avanti e l'identità indietro. Questi due
+    /// valori sono quindi convenzioni interne all'app: viaggiano nel campo
+    /// `remaps` come le altre funzioni, e `session.py` li riconosce e li
+    /// traduce nella forma vera invece di scriverli sul dispositivo.
+    ///
+    /// Due cose che il pad non perdona, misurate sulle catture Windows:
+    /// il firmware tiene **un tasto per verso**, e l'assegnazione **non è per
+    /// banco** — resta nel dispositivo finché una sessione non la riscrive.
     static let nextProfile: UInt16 = 0x0111
     static let previousProfile: UInt16 = 0x0112
+
+    /// I due versi del passo profilo, quelli che vogliono un tasto ciascuno.
+    static let profileStep: Set<UInt16> = [nextProfile, previousProfile]
 
     /// Quanti banchi di profilo ha il device: 24 profili.
     static let profileCount = 24
